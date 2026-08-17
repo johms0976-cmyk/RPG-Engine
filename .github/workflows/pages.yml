@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+
+permissions: { contents: read, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: true }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      # Nothing deploys unless the tests pass.
+      - name: Unit tests
+        run: npm run test
+      # No BASE_PATH any more. vite.config.js builds with a relative base, so
+      # the same artifact works at /RPG-Engine/, at the domain root, or anywhere
+      # else — and it does not break if the repo is ever renamed.
+      - name: Production build
+        run: npm run build
+      # Catches the failure mode where the source is published instead of the
+      # build: dist/index.html must reference a compiled bundle, never main.jsx.
+      - name: Verify the build is a real build
+        run: |
+          test -f dist/index.html
+          test -d dist/assets
+          grep -q 'assets/index-' dist/index.html
+          ! grep -qE '<script[^>]*src="[^"]*src/main\.jsx"' dist/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
