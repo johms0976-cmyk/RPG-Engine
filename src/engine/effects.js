@@ -20,7 +20,9 @@
      { track: "infection" }             start a timed condition
      { condition: "INFECTED" }
      { meter: { bends: 1 } }
-     { vanish: { pool: "crew", text: "{name} is gone." } }
+     { npc: { id: "sonya", loc: "mess", mood: 3, say: "..." } }
+     { npcSay: { id: "sonya", text: "..." } }
+     { vanish: { id: "rie", text: "{name} is gone." } }
      { table: "artifacts" }             roll and narrate
      { countdown: { id, minutes, tick, onZero: [...] } }
      { end: "win" }
@@ -45,7 +47,7 @@ export const EFFECT_KEYS = new Set([
   "track", "condition", "meter", "vanish", "table", "countdown", "stopCountdown",
   "end", "save", "test", "skill", "tags", "mode", "onPass", "onFail", "onCritFail",
   "onCritHit", "ask", "when", "then", "else", "pick", "run", "once", "panic",
-  "rest", "xp", "buff", "target",
+  "rest", "xp", "buff", "target", "npc", "npcSay",
 ]);
 
 /* ---------- predicates ---------- */
@@ -83,7 +85,16 @@ export function test(cond, ctx) {
       case "visited": return !!w.visited[arg];
       case "npc": return !!w.npcs[arg] && w.npcs[arg].alive && !w.npcs[arg].taken;
       case "here": return !!w.npcs[arg] && w.npcs[arg].loc === w.room && w.npcs[arg].alive && !w.npcs[arg].taken;
+      case "taken": return !!(w.npcs[arg] && w.npcs[arg].taken);
+      case "npcAt": {
+        const [who, where] = arg.split("@");
+        return !!w.npcs[who] && w.npcs[who].alive && !w.npcs[who].taken && w.npcs[who].loc === where;
+      }
       case "threat": return !!w.threats[arg] && w.threats[arg].loc === w.room && !w.threats[arg].dead;
+      case "threatAt": {
+        const [tid, where] = arg.split("@");
+        return !!w.threats[tid] && !w.threats[tid].dead && w.threats[tid].loc === where;
+      }
       case "dead": return !!(w.threats[arg] && w.threats[arg].dead);
       case "skill": return !!pc && pc.skills.includes(arg);
       case "crewSkill": return crew.some((p) => p.alive !== false && p.skills.includes(arg));
@@ -158,6 +169,8 @@ export function runEffects(effects, api, vars = {}) {
     if (e.track) api.startTrack(e.track, e.target);
     if (e.noise) api.noise(tmpl(e.noise, vars));
     if (e.threat) api.setThreat(e.threat.id, e.threat);
+    if (e.npc) api.setNpc(e.npc.id, { ...e.npc, say: e.npc.say ? tmpl(e.npc.say, vars) : undefined });
+    if (e.npcSay) api.npcSay(e.npcSay.id, tmpl(e.npcSay.text, vars), e.npcSay.tone);
     if (e.vanish) api.vanish(e.vanish);
     if (e.table) api.rollTable(e.table);
     if (e.run) api.run(e.run, vars);
