@@ -255,6 +255,7 @@ function Cartridge({ mod, slotName, resume, onEject, onRestart }) {
           <HostBar
             view={view} onView={setView} status={net.status} peers={net.peers} crew={crew}
             pending={net.submissions.length} distorted={distorted.length}
+            activity={net.activity}
             onWhisper={net.whisper}
           />
         )}
