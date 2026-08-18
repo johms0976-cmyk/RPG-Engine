@@ -1,0 +1,304 @@
+/* ============================================================
+   PHONE.CSS — the hand-held half of the table.
+
+   Loaded last, and only ever *after* theme.css, so it is allowed
+   to correct it. Nothing in here is a new look; it is the same
+   ink-on-bone print language, sized for a thumb and locked to a
+   viewport that does not scroll behind itself.
+
+   Four problems, in the order they hurt:
+
+   1. THE LOG WAS TALLER THAN THE SCREEN.
+      Two separate causes, both fixed below. First, `.app` used
+      `min-height: 100dvh`, which is a floor, not a ceiling — add
+      a status strip above the grid and the whole document grows
+      past the viewport, so the page itself scrolls and the log
+      runs off the bottom. It is now `height` on phones, with
+      `overflow: hidden`, so the shell is exactly the screen and
+      the panels inside it scroll instead.
+
+      Second, and worse: `<Feed>` renders `<div class="body scroll">`
+      *inside* the Panel's own `.body`. The rule that makes a body
+      scroll is `.panel > .body` — a child combinator — so it never
+      matched the inner one. The result was an outer scroller
+      containing a full-height inner div, and `Feed`'s autoscroll
+      setting `scrollTop` on the element that wasn't the scroller.
+      New lines appeared below the fold and nothing moved. The
+      inner div is now the scroller and the outer one is a plain
+      flex box.
+
+   2. NOTHING SHOWED WHICH PANEL YOU WERE LOOKING AT.
+      The bottom bar's four buttons were identical whichever one
+      you'd pressed. `:has()` reads the drawer class off the grid
+      and lights the matching tab, with no JS change.
+
+   3. NO STATUS. Health, Stress, room and turn were all behind a
+      drawer. `.pstatus` puts them in a permanent 44px strip.
+
+   4. NO BEAT AFTER AN ACTION. `.outcome-*` is the receipt and the
+      consequence card — see OutcomeSheet.jsx.
+   ============================================================ */
+
+/* ---------------- 1. viewport lock ---------------- */
+
+@media (max-width: 780px) {
+  /* Scoped to the play screen on purpose. Play is a fixed frame with
+     scrolling panels inside it, so locking it to the viewport is
+     correct. The join, character builder and locker screens are
+     ordinary long documents — locking those would clip them with no
+     way to scroll, which is a worse bug than the one being fixed. */
+  body:has(.play-grid) { overflow: hidden; overscroll-behavior: none; }
+
+  .app:has(> .play-grid) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app { --tap: 48px; }
+
+  /* Anything that is a long document gets its own scroll within the
+     shell, so the status strip above it stays put. */
+  .app > .join,
+  .app > .wiz,
+  .app > .lobby,
+  .app > .table-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* The Panel body that holds the feed becomes a flex column that does
+   not scroll, and the feed's own div becomes the one thing that does.
+   Applies at every width — the double-scroller was wrong on desktop
+   too, it was just less obvious. */
+.panel > .body.flush {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.panel > .body.flush > #feed-scroll,
+.panel > .body > .body.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px 14px;
+}
+
+/* ---------------- 2. drawers and tabs ---------------- */
+
+@media (max-width: 780px) {
+  /* The drawer replaced the feed as a block, which killed the flex
+     column its panels were relying on for height. */
+  .play-grid.drawer-left > .col-left,
+  .play-grid.drawer-right > .col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Inside a drawer that already scrolls, a panel that also scrolls is
+     a trap — you get a small window inside a small window. */
+  .play-grid.drawer-left .panel.scroll,
+  .play-grid.drawer-right .panel.scroll { overflow: visible; }
+  .play-grid.drawer-left .panel > .body,
+  .play-grid.drawer-right .panel > .body { overflow: visible; }
+
+  .mobile-bar {
+    gap: 6px;
+    padding: 6px 8px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+  .mobile-bar .btn {
+    justify-content: center;
+    text-align: center;
+    font-size: 11px;
+    min-height: 44px;
+  }
+
+  /* Which panel am I on? Read straight off the grid's drawer class. */
+  .app:has(.play-grid.drawer-left) .mobile-bar > :nth-child(1),
+  .app:has(.play-grid:not(.drawer-left):not(.drawer-right)) .mobile-bar > :nth-child(2),
+  .app:has(.play-grid.drawer-right) .mobile-bar > :nth-child(3) {
+    background: var(--fg, #F2EFE6);
+    color: var(--bg, #0A0A0B);
+    border-color: var(--fg, #F2EFE6);
+  }
+
+  /* Room to breathe. A dense action list is the other half of "clunky". */
+  .btn-grid { gap: 8px; }
+  .stack > * + * { margin-top: 10px; }
+  .cmdbar { padding: 6px; gap: 6px; }
+  .cmdbar input { font-size: 16px; }   /* 16px stops iOS zooming on focus */
+
+  /* The net strips were full-height bars stacked three deep. */
+  .net-strip { padding: 4px 10px; font-size: 10.5px; }
+}
+
+/* ---------------- 3. the status strip ---------------- */
+
+.pstatus {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  grid-template-areas: "who turn" "meters meters";
+  align-items: center;
+  gap: 2px 12px;
+  padding: 7px 12px 8px;
+  background: var(--ink, #111112);
+  color: var(--bone, #F2EFE6);
+  border-bottom: 2px solid var(--graphite, #6C6C70);
+  flex-shrink: 0;
+}
+.pstatus-who { grid-area: who; display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+.pstatus-who strong {
+  font-family: var(--display, sans-serif); font-weight: 700;
+  font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pstatus-who span {
+  font-family: var(--mono, monospace); font-size: 9px;
+  letter-spacing: 0.12em; opacity: 0.6;
+}
+.pstatus-turn {
+  grid-area: turn; text-align: right;
+  font-family: var(--mono, monospace); font-size: 11px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pstatus-meters {
+  grid-area: meters; display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-top: 4px;
+}
+
+/* Your turn repaints the strip. Nobody misses it, which is the point. */
+.pstatus[data-state="mine"] {
+  background: var(--accent, #F5C518);
+  color: var(--ink, #111112);
+  border-bottom-color: var(--ink, #111112);
+}
+.pstatus[data-state="combat"] { border-bottom-color: var(--blood, #8B1A1A); }
+.pstatus[data-state="held"] { opacity: 0.85; }
+
+.pips { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pips-label {
+  font-family: var(--mono, monospace); font-size: 9px;
+  letter-spacing: 0.1em; opacity: 0.65; flex-shrink: 0;
+}
+.pips-track { display: flex; gap: 2px; flex: 1; min-width: 0; }
+.pips-track i {
+  flex: 1; height: 7px; min-width: 2px;
+  border: 1px solid currentColor; opacity: 0.3;
+}
+.pips-track i.on { background: currentColor; opacity: 1; }
+.pips.is-warn .pips-track i.on { background: var(--blood, #8B1A1A); border-color: var(--blood, #8B1A1A); }
+.pips-num {
+  font-family: var(--mono, monospace); font-size: 10px;
+  min-width: 2ch; text-align: right; flex-shrink: 0;
+}
+
+/* ---------------- 4. outcome: receipt and consequence ---------------- */
+
+/* The receipt. Says the tap landed, then leaves. */
+.outcome-receipt {
+  position: fixed; z-index: 50;
+  left: 8px; right: 8px;
+  bottom: calc(66px + env(safe-area-inset-bottom));
+  background: var(--bone, #F2EFE6);
+  color: var(--ink, #111112);
+  border: 2px solid var(--ink, #111112);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 9px 12px;
+  max-height: 34dvh; overflow-y: auto;
+  animation: outcome-in 160ms ease-out;
+}
+.outcome-receipt .feed { font-size: 13.5px; gap: 5px; }
+
+/* The consequence. Covers the buttons on purpose. */
+.outcome-scrim {
+  position: fixed; inset: 0; z-index: 58;   /* under .modal-scrim (60): a modal the player opened wins */
+  background: rgba(8, 8, 9, 0.72);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+  animation: outcome-fade 140ms ease-out;
+}
+@media (min-width: 781px) {
+  .outcome-scrim { align-items: center; padding: 24px; }
+  .outcome-card { max-width: 30rem; border-width: 3px; }
+}
+
+.outcome-card {
+  width: 100%;
+  background: var(--bone, #F2EFE6);
+  color: var(--ink, #111112);
+  border: 3px solid var(--ink, #111112);
+  border-bottom: none;
+  display: flex; flex-direction: column;
+  max-height: 82dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: outcome-up 200ms cubic-bezier(0.16, 0.9, 0.3, 1);
+}
+
+/* The signature: a heavy rule that reads like the tear-line on a strip
+   of printer paper, so the card looks torn off the log rather than
+   floated over it. */
+.outcome-head { padding: 14px 16px 10px; }
+.outcome-rule {
+  display: block; height: 6px; margin-bottom: 10px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink, #111112) 0 9px,
+    transparent 9px 15px
+  );
+}
+.outcome-head h2 {
+  margin: 0;
+  font-family: var(--display, sans-serif); font-weight: 700;
+  font-size: 15px; letter-spacing: 0.18em; text-transform: uppercase;
+}
+
+.outcome-body {
+  padding: 0 16px 14px;
+  overflow-y: auto; min-height: 0;
+  overscroll-behavior: contain;
+}
+.outcome-lines { display: flex; flex-direction: column; gap: 9px; }
+.outcome-lines p { margin: 0; white-space: pre-wrap; }
+
+.outcome-go {
+  margin: 0 16px 16px;
+  width: calc(100% - 32px);
+  justify-content: center;
+  min-height: 52px;
+  font-size: 14px; letter-spacing: 0.14em;
+}
+
+@keyframes outcome-up { from { transform: translateY(18px); } to { transform: none; } }
+@keyframes outcome-in { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes outcome-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .outcome-card, .outcome-receipt, .outcome-scrim { animation: none; }
+}
+
+/* ---------------- 5. the Warden's activity ticker ---------------- */
+
+.host-activity {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  font-family: var(--mono, monospace); font-size: 11px;
+  align-items: center;
+}
+.host-activity .act {
+  border: 1px solid currentColor; padding: 2px 7px;
+  letter-spacing: 0.05em; white-space: nowrap;
+}
+.host-activity .act.is-new { background: var(--accent, #F5C518); color: var(--ink, #111112); border-color: var(--accent, #F5C518); }
+.host-activity .act b { font-weight: 700; }
+.host-activity-empty { opacity: 0.5; font-style: italic; }
