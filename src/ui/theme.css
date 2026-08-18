@@ -72,11 +72,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ---------------- app shell ---------------- */
 
+/* --fg / --bg are the "what surface am I sitting on" tokens. Anything
+   that draws itself from the surface colour (buttons, most of all)
+   reads these instead of hardcoding --ink or --bone, because a button
+   that hardcodes one is invisible on the other. Containers that change
+   the surface re-declare them; see .panel below. */
 .app {
   min-height: 100vh;
   min-height: 100dvh;
   display: flex; flex-direction: column;
   background: var(--void);
+  --fg: var(--bone);
+  --bg: var(--void);
+  --danger: #E4585A;
 }
 
 .play-grid {
@@ -140,10 +148,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border: var(--border) solid var(--ink);
   display: flex; flex-direction: column; min-height: 0;
   background: var(--bone); color: var(--ink);
+  --fg: var(--ink);
+  --bg: var(--bone);
+  --danger: var(--blood);
 }
-.panel.dark { background: var(--ink); color: var(--bone); }
+.panel.dark {
+  background: var(--ink); color: var(--bone);
+  --fg: var(--bone);
+  --bg: var(--ink);
+  --danger: #E4585A;
+}
 .panel > header {
   background: var(--ink); color: var(--bone);
+  --fg: var(--bone); --bg: var(--ink); --danger: #E4585A;
   padding: 6px 10px; display: flex; align-items: center;
   justify-content: space-between; gap: 8px; flex-shrink: 0;
 }
@@ -160,30 +177,52 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ---------------- buttons ---------------- */
 
+/* Two rules govern everything below.
+
+   1. Colour comes from --fg / --bg, never from --ink / --bone directly.
+      The old .btn.ghost painted itself --bone on every surface, which
+      is cream text on a cream panel: an invisible button with a grey
+      border, which is exactly what it looked like.
+
+   2. :hover is gated behind a hover-capable pointer. A phone has none,
+      so a tap used to leave the hover state stuck on, which is why a
+      button only appeared *after* you pressed it. Touch feedback comes
+      from :active instead, which releases properly. */
+
 .btn {
   font-family: var(--display); font-weight: 700; font-size: 13px;
   letter-spacing: 0.1em; text-transform: uppercase;
   padding: 8px 10px; min-height: var(--tap);
   cursor: pointer; text-align: left; width: 100%;
-  line-height: 1.15; border: var(--border) solid var(--ink);
-  background: transparent; color: var(--ink);
+  line-height: 1.15; border: var(--border) solid var(--fg, var(--ink));
+  background: transparent; color: var(--fg, var(--ink));
   transition: background 90ms, color 90ms;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  -webkit-tap-highlight-color: transparent;
 }
-.btn:hover:not(:disabled) { background: var(--ink); color: var(--bone); }
 .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .btn .hint { font-family: var(--mono); font-size: 9px; letter-spacing: 0.06em; opacity: 0.7; text-transform: none; font-weight: 400; }
 
-.btn.solid { background: var(--ink); color: var(--bone); }
-.btn.solid:hover:not(:disabled) { background: var(--accent); color: var(--ink); }
-.btn.accent { background: var(--accent); color: var(--ink); }
-.btn.accent:hover:not(:disabled) { background: var(--ink); color: var(--accent); }
-.btn.danger { border-color: var(--blood); color: var(--blood); background: transparent; }
-.btn.danger:hover:not(:disabled) { background: var(--blood); color: var(--bone); }
-.btn.ghost { background: transparent; color: var(--bone); border-color: var(--graphite); }
-.btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.btn.solid,
+.btn.primary { background: var(--fg, var(--ink)); color: var(--bg, var(--bone)); }
+.btn.accent { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.btn.danger { border-color: var(--danger, var(--blood)); color: var(--danger, var(--blood)); background: transparent; }
+.btn.ghost { background: transparent; color: var(--fg, var(--ink)); border-color: var(--graphite); }
 .btn.small { font-size: 11px; padding: 5px 8px; min-height: 32px; }
 .btn.inline { width: auto; display: inline-flex; }
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) { background: var(--fg, var(--ink)); color: var(--bg, var(--bone)); }
+  .btn.solid:hover:not(:disabled),
+  .btn.primary:hover:not(:disabled) { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+  .btn.accent:hover:not(:disabled) { background: var(--fg, var(--ink)); color: var(--accent); border-color: var(--fg, var(--ink)); }
+  .btn.danger:hover:not(:disabled) { background: var(--danger, var(--blood)); color: var(--bg, var(--bone)); }
+  .btn.ghost:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+}
+
+/* Press feedback that works on glass. */
+.btn:active:not(:disabled) { background: var(--fg, var(--ink)); color: var(--bg, var(--bone)); }
+.btn.accent:active:not(:disabled) { background: var(--accent); color: var(--ink); opacity: 0.75; }
 
 .btn-row { display: flex; gap: 5px; flex-wrap: wrap; }
 .btn-grid { display: grid; gap: 5px; }
@@ -226,21 +265,24 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   font-family: var(--mono); font-size: 9.5px;
   letter-spacing: 0.12em; margin-bottom: 3px;
 }
-.bar .bar-track { height: 10px; border: 1.5px solid var(--ink); }
-.bar .bar-fill { height: 100%; background: var(--ink); transition: width 240ms; }
-.bar.warn .bar-value { color: var(--blood); font-weight: 700; }
+.bar .bar-track { height: 10px; border: 1.5px solid var(--fg, var(--ink)); }
+.bar .bar-fill { height: 100%; background: var(--fg, var(--ink)); transition: width 240ms; }
+.bar.warn .bar-value { color: var(--danger, var(--blood)); font-weight: 700; }
 
 .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .statbox {
-  border: 1.5px solid var(--ink); text-align: center; padding: 4px 2px;
+  border: 1.5px solid var(--fg, var(--ink)); text-align: center; padding: 4px 2px;
 }
 .statbox .v { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1; }
-.statbox .k { font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.12em; color: var(--graphite); }
-.statbox.hot { background: var(--accent); }
+/* --graphite on a dark panel is very nearly the panel itself, so the
+   label rides on the surface colour at reduced opacity instead. */
+.statbox .k { font-family: var(--mono); font-size: 7.5px; letter-spacing: 0.12em; color: var(--fg, var(--ink)); opacity: 0.62; }
+.statbox.hot { background: var(--accent); color: var(--ink); }
+.statbox.hot .k { color: var(--ink); }
 
 .label {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.22em;
-  color: var(--graphite); margin: 6px 0 5px;
+  color: var(--fg, var(--ink)); opacity: 0.6; margin: 6px 0 5px;
 }
 
 /* ---------------- crew roster ---------------- */
@@ -248,7 +290,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .roster { display: grid; gap: 4px; }
 .roster-row {
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px;
-  border: 1.5px solid var(--ink); padding: 5px 7px; cursor: pointer;
+  border: 1.5px solid var(--fg, var(--ink)); padding: 5px 7px; cursor: pointer;
   background: transparent; color: inherit; text-align: left; width: 100%;
   font-family: var(--mono); font-size: 11px; min-height: 40px;
 }
