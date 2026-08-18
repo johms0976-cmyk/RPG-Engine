@@ -175,28 +175,97 @@ describe("the approval queue", () => {
 });
 
 describe("building a character on a phone", () => {
-  it("will not offer until creation is actually finished", () => {
-    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
-    const btn = screen.getByText("Offer to the Warden");
-    expect(btn.disabled || btn.closest("button").disabled).toBe(true);
+  const next = () => fireEvent.click(screen.getByText("Next").closest("button"));
+  const tap = (label) => fireEvent.click(screen.getByText(label).closest("button"));
+  const pointsLeft = () => Number(document.querySelector(".wiz-points .n").dataset.points);
+
+  it("will not leave the name step without a name", () => {
+    render(<CreatorPhone mod={MOD} onOffer={() => {}} />);
+    expect(screen.getByText("Not yet").closest("button").disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "ANA" } });
+    expect(screen.getByText("Next").closest("button").disabled).toBe(false);
   });
 
-  it("offers a legal character once the steps are done", () => {
+  it("carries the player's name in as a starting point", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    expect(screen.getByLabelText("Name").value).toBe("ANA");
+  });
+
+  /* The skill step is the one that has been broken before: it listed the
+     three tier *names* instead of the skills inside them, so there was
+     nothing on screen to spend a point on. Naming a real skill here is
+     what stops that coming back. */
+  it("offers real skills to spend points on", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    next(); next(); next();               // name -> stats -> class -> skills
+    expect(screen.getByText("Rimwise")).toBeTruthy();
+    expect(screen.getByText("Hacking")).toBeTruthy();
+    expect(screen.queryByText("trained · 1 point · +10%")).toBeTruthy();
+  });
+
+  it("will not pass the skill step with points unspent", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    next(); next(); next();
+    expect(screen.getByText("Not yet").closest("button").disabled).toBe(true);
+    expect(screen.getByText(/1 more class skill/)).toBeTruthy();
+    tap("Piloting");
+    expect(screen.getByText(/4 skill points/)).toBeTruthy();
+  });
+
+  it("counts spent points down and lets a skill be taken back", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    next(); next(); next();
+    tap("Piloting");                       // the free class pick
+    tap("Rimwise");                        // 1 point
+    expect(pointsLeft()).toBe(3);
+    tap("Rimwise");                        // and back off again
+    expect(pointsLeft()).toBe(4);
+  });
+
+  it("offers a legal character once every step is done", () => {
     const onOffer = vi.fn();
     render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={onOffer} />);
-    // Teamster: 4 points, 1 pick from Heavy Machinery / Piloting.
-    fireEvent.click(screen.getByText("Piloting"));
-    for (const s of ["Rimwise", "Athletics", "Art", "Chemistry"]) {
-      const b = screen.queryByText(s);
-      if (b && !b.closest("button").disabled) fireEvent.click(b);
-    }
-    fireEvent.click(screen.getByText("Excavation"));
-    const btn = screen.getByText("Offer to the Warden").closest("button");
-    if (!btn.disabled) {
-      fireEvent.click(btn);
-      expect(onOffer).toHaveBeenCalled();
-      expect(onOffer.mock.calls[0][0].kind).toBe("mothership-character");
-    }
+    next(); next(); next();
+    // Teamster: 4 points, plus 1 free pick from Heavy Machinery / Piloting.
+    tap("Piloting");
+    for (const s of ["Rimwise", "Athletics", "Art", "Chemistry"]) tap(s);
+    next();                                // -> loadout
+    tap("Excavation");
+    next();                                // -> review
+    fireEvent.click(screen.getByText("Offer to the Warden").closest("button"));
+    expect(onOffer).toHaveBeenCalled();
+    const file = onOffer.mock.calls[0][0];
+    expect(file.kind).toBe("mothership-character");
+    expect(file.pc.skills).toEqual(
+      expect.arrayContaining(["Zero-G", "Mechanical Repair", "Piloting", "Rimwise"]),
+    );
+  });
+
+  it("drops skills that depended on one you take back", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    next(); next(); next();
+    tap("Piloting");
+    tap("Computers");                      // 1 point, trained
+    tap("Hacking");                        // 2 points, needs Computers
+    expect(pointsLeft()).toBe(1);
+    tap("Computers");                      // pulls the rug out from Hacking
+    expect(pointsLeft()).toBe(4);
+  });
+
+  it("lets you step back through the crumb rail but not skip ahead", () => {
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} />);
+    next();
+    expect(screen.getByText("Name").closest("button").disabled).toBe(false);
+    expect(screen.getByText("Kit").closest("button").disabled).toBe(true);
+    fireEvent.click(screen.getByText("Name").closest("button"));
+    expect(screen.getByLabelText("Name")).toBeTruthy();
+  });
+
+  it("cancels out of the first step rather than going nowhere", () => {
+    const onBack = vi.fn();
+    render(<CreatorPhone mod={MOD} playerName="Ana" onOffer={() => {}} onBack={onBack} />);
+    fireEvent.click(screen.getByText("Cancel").closest("button"));
+    expect(onBack).toHaveBeenCalled();
   });
 });
 
