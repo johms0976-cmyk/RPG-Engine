@@ -36,6 +36,10 @@ export const PLAYER_ACTIONS = new Set([
   "fleeCombat", "endPcTurn",
   "doRest", "offerRest", "applyLevel",
   "resolvePending", "buy", "sell",
+  // A room/module action, named by id. The host looks the id up in the
+  // module and re-checks its `when` before running anything, so this
+  // is not a channel for a phone to post arbitrary effects.
+  "runAction",
   // The board is the crew's own record, so writing to it is a player right.
   "pinClue", "unpinClue", "setClueResolved", "addMark", "removeMark",
 ]);
