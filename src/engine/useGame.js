@@ -1602,6 +1602,19 @@ export function useGame(mod, settings = {}) {
       return r;
     },
     act: (effects, vars) => runEffects(effects, apiRef.current, vars),
+    /* Same thing, but addressed by id instead of by handing over a list
+       of effects. Phones can only name an action that already exists in
+       the module for the room they are standing in, and its `when` is
+       re-tested here, so nothing arrives over the wire that the Warden's
+       own screen would not also have offered. */
+    runAction: (actionId) => {
+      const here = mod.rooms[W().room] || {};
+      const a = (mod.actions || []).concat(here.actions || []).find((x) => x && x.id === actionId);
+      if (!a) return;
+      if (a.when && !test(a.when, apiRef.current.ctx())) { say("system", "Not available."); return; }
+      if (a.needs && !test(a.needs, apiRef.current.ctx())) { say("system", a.needsText || "Access denied."); return; }
+      runEffects(a.effects, apiRef.current, {});
+    },
     api: apiRef.current,
   };
 }
