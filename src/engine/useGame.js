@@ -318,7 +318,7 @@ export function useGame(mod, settings = {}) {
     // Class contagion
     for (const c of saveContagion(pc, req, r, crewNear(pc))) {
       if (c.kind === "stressOthers") {
-        say("stress", c.text);
+        say("stress", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
         commitCrew(C().map((x) => (c.ids.includes(x.id) ? { ...x, stress: x.stress + c.amount } : x)));
       }
     }
@@ -350,7 +350,8 @@ export function useGame(mod, settings = {}) {
     // Teamster: one Panic Effect re-roll per session.
     if (pc.cls === "teamster" && !pc.usedPanicReroll && effRoll + pc.stress - pc.resolve >= 14) {
       const second = dN(2, 10);
-      say("panic", `${pc.name} is a Teamster and has seen worse. Re-rolling ${effRoll} → ${second}.`);
+      say("panic", `${pc.name} is a Teamster and has seen worse. Re-rolling ${effRoll} → ${second}.`,
+        { classfx: "teamsterReroll", by: pc.id, ids: [pc.id] });
       effRoll = Math.min(effRoll, second);
       patchPc(pc.id, (c) => ({ ...c, usedPanicReroll: true }));
     }
@@ -401,7 +402,7 @@ export function useGame(mod, settings = {}) {
 
     // Marine contagion
     for (const c of panicContagion(pc, crewNear(pc))) {
-      say("panic", c.text);
+      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
       c.ids.forEach((id) => rollNow({ kind: "save", name: "fear", pcId: id, why: "a Marine just broke", autoPanic: false }));
     }
     return true;
@@ -415,7 +416,7 @@ export function useGame(mod, settings = {}) {
     for (const item of q) if (doPanic(item.pcId)) panicked.push(item.pcId);
     // More than one at once is itself a trigger (PSG 26.2).
     for (const c of multiPanicContagion(panicked, crewNear(findPc(C(), panicked[0])))) {
-      say("panic", c.text);
+      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
       c.ids.forEach((id) => doPanic(id));
     }
   }, [doPanic, say]);
@@ -434,7 +435,7 @@ export function useGame(mod, settings = {}) {
   const afterCrewLoss = useCallback((pcId) => {
     const dead = findPc(C(), pcId);
     for (const c of deathContagion(dead, crewNear(dead))) {
-      say("panic", c.text);
+      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
       c.ids.forEach((id) => queuePanic(id, "crewDeath"));
     }
     const left = C().filter((c) => c.alive !== false);
@@ -485,8 +486,18 @@ export function useGame(mod, settings = {}) {
 
     /* --- 0 Health: Body Save or die (PSG 10.4) --- */
     const r = check(pc.saves.body, "none", { advTieBreak: houseRules.advTieBreak });
+    /* THE ONE ROLL THAT IS NOT A LINE IN A LOG.
+
+       Reaching 0 Health and making a Body Save is the most
+       consequential thing that happens to a character, and until
+       now it was one entry in a scrolling feed on a 6-inch screen,
+       between a damage line and a room description. The structured
+       copy lets a phone give it the whole display — see
+       ui/DeathTakeover.jsx — without anything having to parse the
+       prose back out again. */
     say(r.success ? "rollgood" : "rollbad",
-      `DEATH · ${pc.name} — Body Save ${pc.saves.body}%, rolled ${pad(r.value)} · ${r.success ? "falls unconscious" : "dies"}.`);
+      `DEATH · ${pc.name} — Body Save ${pc.saves.body}%, rolled ${pad(r.value)} · ${r.success ? "falls unconscious" : "dies"}.`,
+      { death: { pcId: pc.id, name: pc.name, save: pc.saves.body, roll: r.value, survived: !!r.success, why: why || null } });
     if (!r.success) { killPc(pc.id, why); return; }
 
     const roll = d(10);

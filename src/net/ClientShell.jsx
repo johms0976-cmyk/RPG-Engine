@@ -57,6 +57,9 @@ import SafetyCard from "./SafetyCard.jsx";
 import Spotlight from "../ui/Spotlight.jsx";
 import Duress from "../ui/Duress.jsx";
 import PanicTakeover, { panicFrom } from "../ui/PanicTakeover.jsx";
+import DeathTakeover, { deathFrom } from "../ui/DeathTakeover.jsx";
+import ClassAlert from "../ui/ClassAlert.jsx";
+import { classAlert } from "../engine/classfx.js";
 import { SituationBanner, SceneChip, HeldStrip } from "../ui/SituationBanner.jsx";
 import TradeOffer from "../ui/TradeOffer.jsx";
 import RecapCard from "../ui/RecapCard.jsx";
@@ -158,6 +161,16 @@ export default function ClientShell() {
      the takeover is punctuation on top of a record, not instead of one. */
   const [panic, setPanic] = useState(null);
   const lastPanicId = React.useRef(0);
+  /* 0 Health, and the roll that decided. Held separately from the
+     panic takeover because it does not lift on its own — see
+     ui/DeathTakeover.jsx for why that difference is the point. */
+  const [death, setDeath] = useState(null);
+  const lastDeathId = React.useRef(0);
+  /* A class rule that fired on somebody else's sheet and landed on
+     this one. Newest wins; these do not queue, because four of them
+     stacked during a bad round is a wall, not information. */
+  const [classFx, setClassFx] = useState(null);
+  const lastClassId = React.useRef(0);
   /* The recap the Warden put up, once this phone has read it. */
   const [recapDown, setRecapDown] = useState(0);
   /* WHEN THE LINE WENT QUIET, AND HOW QUIET.
@@ -277,6 +290,21 @@ export default function ClientShell() {
 
     if (msg.t === "denied") {
       setNotice(DENIAL_TEXT[msg.reason] || msg.reason);
+      /* AN OFFER THAT WAS NEVER DELIVERED IS NOT AN OFFER PENDING.
+
+         A phone that submitted a character while no Warden was
+         attached got `no-warden` back, showed it as a four-second
+         toast, and then sat on "Waiting for the Warden · Sending…"
+         for the rest of the evening — with a Warden who, by
+         definition, had never seen it. The toast was the only
+         evidence and it deleted itself.
+
+         The offer is marked unsent instead, so the waiting room says
+         what happened and there is something to press when the
+         Warden's screen finally connects. */
+      if (msg.reason === "no-warden") {
+        setOffer((o) => (o ? { ...o, state: "unsent" } : o));
+      }
       if (msg.reason === "taken") { setPcId(null); setClaiming(null); }
       if (msg.reason === "rejected") setOffer((o) => (o ? { ...o, state: "rejected" } : o));
       // A refused intent is a finished intent: let the buttons back on.
@@ -445,6 +473,41 @@ export default function ClientShell() {
     }
   }, [inPlay, g && g.feed, pcId]);
 
+  /* 0 HEALTH. Scanned separately from Panic rather than folded into
+     the same loop: a Body Save at 0 Health can arrive in the same
+     snapshot as the Panic that watching it caused somebody else, and
+     the two must not race for one slot. `extra.death` is stamped by
+     the engine, so nothing here reads prose. */
+  useEffect(() => {
+    if (!inPlay || !g || !g.feed) return;
+    for (let i = g.feed.length - 1; i >= 0; i--) {
+      const line = g.feed[i];
+      if (!line.extra || !line.extra.death) continue;
+      if (line.id <= lastDeathId.current) break;
+      const ev = deathFrom(line, pcId);
+      lastDeathId.current = line.id;
+      if (ev) setDeath(ev);
+      break;
+    }
+  }, [inPlay, g && g.feed, pcId]);
+
+  /* A class rule firing on this phone because of somebody else's
+     sheet. The only rules in Mothership a player cannot look up when
+     they happen, because the sheet they are written on is in another
+     person's hand. */
+  useEffect(() => {
+    if (!inPlay || !g || !g.feed) return;
+    for (let i = g.feed.length - 1; i >= 0; i--) {
+      const line = g.feed[i];
+      if (!line.extra || !line.extra.classfx) continue;
+      if (line.id <= lastClassId.current) break;
+      lastClassId.current = line.id;
+      const card = classAlert(line, pcId, (g && g.crew) || []);
+      if (card) setClassFx(card);
+      break;
+    }
+  }, [inPlay, g && g.feed, pcId]);
+
   // A snapshot means the world moved, so whatever was being held is not.
   useEffect(() => { setHolding(null); }, [seq]);
 
@@ -485,7 +548,10 @@ export default function ClientShell() {
     send({ t: "submit", character: file });
     setLocker(false);
     setBuilding(false);
-    setOffer({ state: "pending", pc: file.pc });
+    // The whole file, not just its `pc`, so a resend after `no-warden`
+    // sends the character that was actually built rather than a
+    // reconstruction of it.
+    setOffer({ state: "pending", pc: file.pc, file });
   }, [send]);
 
   const withdraw = useCallback(() => {
@@ -521,6 +587,11 @@ export default function ClientShell() {
   if (offer) {
     body = (
       <OfferStatus offer={offer} onWithdraw={withdraw}
+        onResend={() => {
+          if (!offer.pc) return;
+          send({ t: "submit", character: offer.file || offer.pc });
+          setOffer((o) => (o ? { ...o, state: "pending" } : o));
+        }}
         onAgain={() => { setOffer(null); setBuilding(true); }} />
     );
   } else if (building && mod) {
@@ -604,6 +675,10 @@ export default function ClientShell() {
             something does not stop while you read your inventory. */}
         {inPlay && <Duress duress={duress} />}
         <PanicTakeover event={panic} onDone={() => setPanic(null)} />
+        {/* Above Panic in the stack, because 0 Health outranks it and
+            because this one waits to be acknowledged. */}
+        <DeathTakeover event={death} onDismiss={() => setDeath(null)} />
+        <ClassAlert alert={classFx} onDismiss={() => setClassFx(null)} />
         <Spotlight spot={spot} onDone={() => setSpot(null)} />
         {/* Outside every other screen and above every modal, on purpose:
             the moment you most need this is the moment the game is most
@@ -678,8 +753,42 @@ export function ConnectionStrip({ since, status }) {
    The waiting room. Its whole job is to be a screen with nothing
    on it to press twice.
    ============================================================ */
-export function OfferStatus({ offer, onWithdraw, onAgain }) {
+export function OfferStatus({ offer, onWithdraw, onAgain, onResend }) {
   const pc = offer.pc || {};
+
+  /* The relay took it and had nowhere to put it. Distinct from
+     "rejected" — nobody has looked at this and decided anything;
+     there was simply no Warden attached to the table when it was
+     sent. Saying so is the difference between a screen that is
+     waiting and a screen that is stuck. */
+  if (offer.state === "unsent") {
+    return (
+      <div className="join">
+        <Panel title="Nobody picked that up">
+          <div className="stack">
+            <p style={{ margin: 0 }}>
+              <strong>{pc.name}</strong> did not reach anyone. The table server
+              is running — you are talking to it — but the Warden&apos;s screen
+              is not attached to it, so there was nowhere to deliver this.
+            </p>
+            <div className="note-box">
+              Worth saying out loud. If the top of their screen says anything
+              other than a list of phones, that is the problem — and on the
+              machine running the server the Warden screen has to be the
+              <code> localhost </code> address, not the one your phone uses.
+            </div>
+            <div className="btn-grid">
+              {onResend && <Btn kind="primary" onClick={onResend}>Send it again</Btn>}
+              <Btn kind="ghost" onClick={onAgain}>Change something first</Btn>
+            </div>
+            <p className="clue-meta" style={{ margin: 0 }}>
+              A copy is in your locker either way, so nothing is lost.
+            </p>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
 
   if (offer.state === "rejected") {
     return (

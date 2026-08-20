@@ -39,6 +39,7 @@
 import React from "react";
 import { Panel } from "../ui/kit.jsx";
 import ClueBoard from "../ui/ClueBoard.jsx";
+import { CLASS_EFFECTS } from "../engine/classfx.js";
 
 /* ---------------- the reference card ----------------
 
@@ -183,10 +184,34 @@ export default function PlayerNotes({ mod, w, crew, pc, safety }) {
 
       <Panel title="Stress, Panic and dying">
         <Facts rows={STRESS} />
+      </Panel>
+
+      {/* THE FOUR RULES THAT ARE ABOUT SOMEBODY ELSE.
+
+          Every one of these lives on one player's sheet and fires on
+          another player's. Whichever class you are, three of the four
+          are things that will happen *to* you with no warning and no
+          way to look them up, because the sheet that explains them is
+          in somebody else's hand. So all four go here, once, where
+          anybody can read the whole set. Your own is also permanently
+          on the Sheet tab, in the second person. */}
+      <Panel title="What each class does to the room">
+        <div className="stack">
+          {Object.entries(CLASS_EFFECTS).map(([key, e]) => (
+            <div key={key} className="clue">
+              <span className="clue-kind">{e.name}</span>
+              <span>
+                {e.you}
+                <span className="clue-meta" style={{ display: "block", marginTop: 2 }}>
+                  {e.when}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
         <p className="clue-meta" style={{ margin: "8px 0 0" }}>
-          Your class changes how this goes for everyone else — a Marine who
-          Panics puts the room on a Fear Save, a Scientist who fails Sanity
-          hands out Stress. Check your own on the Sheet tab.
+          If one of these fires on you, a card says so at the time. You should
+          not have to work out why you gained a point of Stress.
         </p>
       </Panel>
     </div>

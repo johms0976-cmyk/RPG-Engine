@@ -629,3 +629,221 @@
   .app > .join .panel,
   .app > .join .panel > .body { overflow: visible; }
 }
+
+/* ============================================================
+   7. THE NUMBERS THAT MATTER, AND THE MOMENTS THAT DO
+
+   Everything below is one of five things a player asks that the
+   interface previously answered in the same voice it used for
+   everything else: how close am I to Panic, how long have we got,
+   what are my two actions, am I the only one who saw that, and
+   did I just die.
+   ============================================================ */
+
+/* ---------------- panic odds ----------------
+
+   Third item on the meter row. It is a number rather than a bar
+   because it is the one figure on the strip that does not have a
+   maximum to be a fraction of — and because 64% read as a shape
+   is just another bar, which is the problem it exists to fix. */
+.pstatus-panic {
+  display: flex; align-items: baseline; gap: 5px;
+  font-family: var(--mono, monospace);
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.pstatus-panic-k { font-size: 9px; letter-spacing: 0.1em; opacity: 0.65; }
+.pstatus-panic-v { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
+.pstatus-panic-rule { font-size: 9px; letter-spacing: 0.06em; opacity: 0.5; margin-left: auto; }
+
+/* The band does the reading for you. Nothing shouts below a fifth,
+   because a strip that is always alarmed is a strip nobody reads. */
+.pstatus-panic.is-low .pstatus-panic-v { opacity: 0.75; }
+.pstatus-panic.is-real .pstatus-panic-v { color: var(--accent, #F5C518); }
+.pstatus-panic.is-likely .pstatus-panic-v { color: var(--blood, #8B1A1A); }
+.pstatus-panic.is-certain .pstatus-panic-v {
+  color: var(--bone, #F2EFE6);
+  background: var(--blood, #8B1A1A);
+  padding: 0 5px;
+}
+/* On the yellow "your turn" strip the blood red is unreadable, so
+   the emphasis moves to the ink the strip is already using. */
+.pstatus[data-state="mine"] .pstatus-panic.is-likely .pstatus-panic-v,
+.pstatus[data-state="mine"] .pstatus-panic.is-real .pstatus-panic-v {
+  color: var(--ink, #111112);
+  text-decoration: underline;
+}
+
+/* The clock, inside the permanent strip rather than behind a drawer. */
+.pstatus .clockstrip {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+/* ---------------- the standing class rule ---------------- */
+.classline {
+  margin: 4px 0 0;
+  font-size: 12px; line-height: 1.5;
+  border-left: 3px solid var(--accent, #F5C518);
+  padding-left: 9px;
+  opacity: 0.9;
+}
+
+/* ---------------- what an action is ---------------- */
+.turnref {
+  border: 1px solid color-mix(in srgb, var(--fg, #F2EFE6) 28%, transparent);
+  margin-bottom: 8px;
+}
+.turnref-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: 0; cursor: pointer;
+  padding: 9px 10px;
+  color: inherit; font: inherit;
+  font-family: var(--mono, monospace); font-size: 11px;
+  text-align: left;
+}
+.turnref-count { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.turnref-hint { opacity: 0.6; }
+.turnref-chev { margin-left: auto; opacity: 0.6; }
+.turnref-lede,
+.turnref-foot {
+  margin: 0 10px 8px;
+  font-size: 11.5px; line-height: 1.5; opacity: 0.75;
+}
+.turnref-foot { border-top: 1px dotted color-mix(in srgb, var(--fg, #F2EFE6) 25%, transparent); padding-top: 8px; }
+.turnref-list { list-style: none; margin: 0 0 8px; padding: 0; }
+.turnref-list li {
+  display: flex; gap: 10px; align-items: baseline;
+  padding: 5px 10px;
+  font-size: 12.5px; line-height: 1.4;
+}
+.turnref-list li + li { border-top: 1px solid color-mix(in srgb, var(--fg, #F2EFE6) 12%, transparent); }
+.turnref-label { flex: 1; min-width: 0; }
+.turnref-cost {
+  font-family: var(--mono, monospace); font-size: 9.5px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  opacity: 0.6; white-space: nowrap; flex-shrink: 0;
+}
+/* Off, with the reason, rather than absent. This is the one list in
+   the client that teaches rather than offers — see TurnActions.jsx. */
+.turnref-list li.is-off { opacity: 0.42; }
+.turnref-list li.is-off .turnref-label { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* ---------------- who else saw that ---------------- */
+.feedlog-only {
+  display: inline-block;
+  font-family: var(--mono, monospace); font-size: 8.5px;
+  letter-spacing: 0.12em; font-weight: 700;
+  border: 1px solid currentColor;
+  padding: 0 4px; margin-right: 6px;
+  vertical-align: 1px;
+  opacity: 0.75;
+}
+.feedlog-only.is-solo { color: var(--accent, #F5C518); opacity: 1; }
+
+/* ---------------- a class rule landing on you ---------------- */
+.classfx {
+  position: fixed; z-index: 59;
+  left: 8px; right: 8px;
+  bottom: calc(70px + env(safe-area-inset-bottom));
+  display: flex; justify-content: center;
+  pointer-events: none;
+}
+.classfx-card {
+  pointer-events: auto;
+  display: flex; flex-direction: column; gap: 3px;
+  width: 100%; max-width: 30rem;
+  text-align: left; font: inherit; cursor: pointer;
+  background: var(--bone, #F2EFE6);
+  color: var(--ink, #111112);
+  border: 2px solid var(--ink, #111112);
+  border-left: 6px solid var(--accent, #F5C518);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  padding: 9px 12px;
+  animation: classfx-in 180ms ease-out;
+}
+.classfx-kicker {
+  font-family: var(--mono, monospace); font-size: 9px;
+  letter-spacing: 0.14em; opacity: 0.7;
+}
+.classfx-title {
+  font-family: var(--display, sans-serif); font-weight: 700;
+  font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.classfx-body { font-size: 12.5px; line-height: 1.45; }
+@keyframes classfx-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------------- 0 Health ----------------
+
+   The only overlay in the client that does not lift on its own.
+   z-index above the panic takeover because if both are on screen
+   the Body Save is the one being waited on. */
+.deathover {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  background: rgba(6, 6, 7, 0.94);
+  animation: deathover-in 260ms ease-out;
+}
+.deathover-inner {
+  width: 100%; max-width: 26rem;
+  border: 3px solid var(--bone, #F2EFE6);
+  background: var(--void, #0A0A0B);
+  color: var(--bone, #F2EFE6);
+  padding: 20px 18px 18px;
+  text-align: center;
+}
+.deathover.is-dead .deathover-inner { border-color: var(--blood, #8B1A1A); }
+.deathover-kicker {
+  display: block;
+  font-family: var(--mono, monospace); font-size: 9.5px;
+  letter-spacing: 0.18em; opacity: 0.7;
+}
+.deathover-name {
+  display: block; margin: 8px 0 14px;
+  font-family: var(--display, sans-serif); font-weight: 700;
+  font-size: clamp(30px, 12vw, 52px); line-height: 0.95;
+  letter-spacing: 0.06em;
+}
+.deathover.is-dead .deathover-name { color: var(--blood, #8B1A1A); }
+
+/* What you needed, and what you got. */
+.deathover-maths {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: color-mix(in srgb, var(--bone, #F2EFE6) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bone, #F2EFE6) 30%, transparent);
+  margin-bottom: 14px;
+}
+.deathover-maths span {
+  background: var(--void, #0A0A0B);
+  padding: 8px 6px;
+  font-family: var(--mono, monospace); font-size: 15px; font-weight: 700;
+}
+.deathover-maths i {
+  display: block; font-style: normal;
+  font-size: 8.5px; letter-spacing: 0.14em; opacity: 0.55; margin-bottom: 3px;
+}
+.deathover-body { margin: 0 0 10px; font-size: 13px; line-height: 1.5; text-align: left; }
+.deathover-who {
+  margin: 0 0 14px;
+  font-family: var(--mono, monospace); font-size: 10px;
+  letter-spacing: 0.16em; opacity: 0.6;
+}
+.deathover-go {
+  width: 100%; min-height: 52px;
+  font: inherit; font-family: var(--display, sans-serif); font-weight: 700;
+  font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
+  background: var(--bone, #F2EFE6); color: var(--ink, #111112);
+  border: 2px solid var(--bone, #F2EFE6);
+  cursor: pointer;
+}
+.deathover-go:focus-visible { outline: 3px solid var(--accent, #F5C518); outline-offset: 3px; }
+
+@keyframes deathover-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .deathover, .classfx-card { animation: none; }
+}

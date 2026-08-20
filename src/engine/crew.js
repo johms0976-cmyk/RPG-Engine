@@ -56,6 +56,13 @@ export function saveContagion(pc, req, result, crew) {
     if (others.length)
       out.push({
         kind: "stressOthers", ids: others.map((c) => c.id), amount: 1,
+        /* `tag` and `sourceId` exist so a phone can recognise this
+           without matching on the prose. A class rule that fires on
+           somebody else's sheet is the one kind of event a player
+           cannot see coming and cannot look up, so the handset needs
+           to be able to raise it as a card rather than let it scroll
+           past as one more line about somebody else. */
+        tag: "scientistContagion", sourceId: pc.id,
         text: `${pc.name} makes a sound nobody wants to hear from a scientist. Everyone nearby gains 1 Stress.`,
       });
   }
@@ -69,6 +76,7 @@ export function panicContagion(pc, crew) {
   if (!others.length) return [];
   return [{
     kind: "fearSaveOthers", ids: others.map((c) => c.id),
+    tag: "marineContagion", sourceId: pc.id,
     text: `${pc.name} is a Marine, and Marines are not supposed to do that. Everyone nearby must make a Fear Save.`,
   }];
 }
@@ -79,6 +87,7 @@ export function deathContagion(dead, crew) {
   if (!others.length) return [];
   return [{
     kind: "panicOthers", ids: others.map((c) => c.id),
+    tag: "crewDeath", sourceId: dead.id,
     text: `${dead.name} is dead, and everyone saw it.`,
   }];
 }
@@ -93,6 +102,7 @@ export function multiPanicContagion(justPanicked, crew) {
   if (!ids.length) return [];
   return [{
     kind: "panicOthers", ids,
+    tag: "multiPanic", sourceId: null,
     text: "Two of them go at once. Whatever was holding the room together is not holding it any more.",
   }];
 }

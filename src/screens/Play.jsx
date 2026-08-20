@@ -20,6 +20,8 @@ import WardenDeck from "./WardenDeck.jsx";
 import HoldToRoll from "../ui/HoldToRoll.jsx";
 import FullScreen from "../ui/FullScreen.jsx";
 import PlayerNotes from "./PlayerNotes.jsx";
+import TurnActions from "../ui/TurnActions.jsx";
+import { classLine } from "../engine/classfx.js";
 import { Evidence, Artefact } from "../ui/Artefact.jsx";
 import FeedLog from "../ui/FeedLog.jsx";
 import { usePressure } from "../ui/usePressure.js";
@@ -256,6 +258,24 @@ export default function Play({
         <Label>SKILLS</Label>
         <div style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{pc.skills.join(", ") || "none"}</div>
 
+        {/* WHAT YOUR CLASS DOES TO EVERYONE ELSE.
+
+            The only rule on a Mothership sheet that is not about its
+            owner, and the only one a player has no way to look up when
+            it fires — because when a Marine Panics, the person who has
+            to roll is holding a different phone. It was written down
+            once, during character creation, and then never again.
+
+            Permanent, on the sheet, in the second person. The matching
+            half — a card on the phone of the person it landed on —
+            is engine/classfx.js. */}
+        {classLine(pc.cls) && (
+          <>
+            <Label>AND EVERYONE NEAR YOU</Label>
+            <p className="classline">{classLine(pc.cls)}</p>
+          </>
+        )}
+
         <Label>CARRYING</Label>
         <div className="btn-grid">
           {pc.items.map((id) => {
@@ -432,6 +452,31 @@ export default function Play({
                 <div className="warn-box" style={{ borderColor: "var(--blood)" }}>
                   {heldBy.name.toUpperCase()} HAS HOLD OF YOU. Tearing free takes your whole turn.
                 </div>
+              )}
+
+              {/* The fourteen-bullet answer to "what is an action",
+                  collapsed, on your turn only. See ui/TurnActions.jsx
+                  for why it is a reference and not more buttons. */}
+              {myTurn && actor && (
+                <TurnActions
+                  actionsLeft={actor.actions}
+                  ctx={{
+                    actions: actor.actions,
+                    held: !!heldBy,
+                    target: !!target,
+                    armed: weapons.some((id) => canFire(pc, id, items[id], houseRules).ok),
+                    reloadable: weapons.some((id) => items[id].shots && (pc.ammo[id] ?? items[id].shots) < items[id].shots),
+                    carrying: pc.items.length > 0,
+                    /* No `drug` flag in gear.js, and inventing one would
+                       mean touching every module's item table. A thing
+                       you take is a thing that heals, calms or buffs. */
+                    hasDrug: pc.items.some((id) => {
+                      const it = items[id];
+                      return !!it && !!(it.heal || it.calm || it.buff);
+                    }),
+                    others: crew.some((c) => c.id !== pc.id && c.alive !== false),
+                  }}
+                />
               )}
 
               <ActionGroup label={`Target — ${target ? `${target.name}, ${target.distance}m` : "none"}`}>
@@ -636,7 +681,9 @@ export default function Play({
                 that stops new lines yanking you off what you were
                 reading, and a timestamp per line so "when was that?"
                 is answerable thirty seconds later. */}
-            <FeedLog feed={feed} crew={crew} />
+            {/* myPcId so an addressed line can say who else got it —
+                see audienceBadge in FeedLog.jsx. */}
+            <FeedLog feed={feed} crew={crew} myPcId={pc.id} />
           </Panel>
 
           <form onSubmit={submit} className="cmdbar">
@@ -829,7 +876,7 @@ export default function Play({
           <Artefact id={tableHandout} handout={mod.handouts[tableHandout]} flat />
           <p className="clue-meta" style={{ textAlign: "center", marginTop: 12 }}>
             {tableHandoutOnly && tableHandoutOnly.includes(pc.id)
-              ? "You are being shown this and the rest of the table is not. What you do with that is yours."
+              ? "ONLY YOU · You are being shown this and the rest of the table is not. What you do with that is yours."
               : "The Warden is holding this up. Putting it down only puts it down for you — it stays in your Evidence, and on the table screen."}
           </p>
         </FullScreen>

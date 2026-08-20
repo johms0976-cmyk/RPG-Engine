@@ -70,8 +70,48 @@ const stamp = (clock) => {
   return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 };
 
+/* ============================================================
+   WHO ELSE CAN SEE THIS LINE.
+
+   `register()` has always given an addressed line its own visual
+   register, and that was the right instinct half-executed: it
+   tells you the line is *different*, not that it is *private*,
+   and those are not the same thought at a table.
+
+   Mothership runs on the gap between what the table knows and
+   what you know. secrets.js does careful work keeping the two
+   apart — a room description reaches the four people standing in
+   the room and nobody else — but the interface then presented
+   everything at one volume, so a player could not tell which of
+   the things on their screen the person beside them could also
+   read. And a player who is not sure they are the only one who
+   knows says nothing, which is the exact opposite of what the
+   mechanic is for.
+
+   So an addressed line says who it reached. `to` survives
+   redaction (see visibleFeed) and is either one pcId or a list,
+   so the count is arithmetic rather than a guess.
+
+   Not marked, deliberately: a distorted reading. distort.js
+   exists to make a hallucinating player mistrust their own eyes,
+   and a badge saying "this one is a lie" would end that in one
+   glance. What you are not told, you cannot check. */
+function audienceBadge(line, crew, myPcId) {
+  if (line.kind === "whisper") return { label: "ONLY YOU", solo: true };
+  if (line.to == null) return null;
+  const to = Array.isArray(line.to) ? line.to : [line.to];
+  const able = (crew || []).filter((c) => c.alive !== false);
+  // Addressed to everybody still standing is not private, it is just
+  // how a room description is routed. Saying "6 OF YOU" there would
+  // make the badge wallpaper and the real ones invisible.
+  if (able.length && to.length >= able.length) return null;
+  if (to.length === 1) return { label: "ONLY YOU", solo: true };
+  const others = to.filter((id) => id !== myPcId).length;
+  return { label: `${to.length} OF YOU`, solo: false, others };
+}
+
 export default function FeedLog({
-  feed = [], crew = [], emptyText = "Nothing yet.", showStamps = true,
+  feed = [], crew = [], myPcId = null, emptyText = "Nothing yet.", showStamps = true,
 }) {
   const scroller = useRef(null);
   const end = useRef(null);
@@ -138,6 +178,7 @@ export default function FeedLog({
           const first = !dividerDrawn && line.id > seenId && unread > 0 && !stuck;
           if (first) dividerDrawn = true;
           const who = line.npc ? null : nameOf(line.pcId || line.by);
+          const badge = audienceBadge(line, crew, myPcId);
 
           if (reg === "beat") {
             return (
@@ -153,12 +194,23 @@ export default function FeedLog({
           return (
             <React.Fragment key={line.id}>
               {first && <Divider n={unread} />}
-              <p className={`feedlog-line k-${line.kind} is-${reg}${line.phantom ? " is-phantom" : ""}`}>
+              <p className={`feedlog-line k-${line.kind} is-${reg}${line.phantom ? " is-phantom" : ""}${badge ? " is-private" : ""}`}>
                 {showStamps && (
                   <span className="feedlog-meta" aria-hidden="true">
                     <i className="feedlog-clock">{stamp(line.clock)}</i>
                     {who && <i className="feedlog-who">{who}</i>}
                     {line.live && <i className="feedlog-live" title="The Warden said this">·</i>}
+                  </span>
+                )}
+                {badge && (
+                  <span className={`feedlog-only${badge.solo ? " is-solo" : ""}`}
+                    title={badge.solo
+                      ? "Nobody else at this table was sent this line."
+                      : `${badge.label.toLowerCase()} were sent this line. Nobody else was.`}
+                    aria-label={badge.solo
+                      ? "Only you were sent this"
+                      : `Sent to ${badge.label.toLowerCase()}`}>
+                    {badge.label}
                   </span>
                 )}
                 <span className="feedlog-text">{line.text}</span>

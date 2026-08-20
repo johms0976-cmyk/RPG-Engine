@@ -25,6 +25,8 @@ import { currentTurn } from "../engine/combat.js";
 import { DURESS } from "../engine/duress.js";
 import { tempoOf, sceneHolder, scenePosition, sceneSpent, WAIT_TEXT } from "../engine/tempo.js";
 import { roomOf, othersHere, isSplit } from "../engine/party.js";
+import { panicChance, panicBand, pct, panicOddsSentence } from "../engine/odds.js";
+import ClockStrip from "../ui/Clocks.jsx";
 
 /* ROOM CONDITIONS THE PLAYER IS STANDING IN.
 
@@ -79,6 +81,40 @@ function princeState(w, room) {
   if (it && !it.dead && it.loc === room) return { label: "PRINCE", text: "will not come in", alarm: true };
   if (it && !it.dead && p.state === "staring") return { label: "PRINCE", text: "staring at nothing", alarm: true };
   return { label: "PRINCE", text: "with you" };
+}
+
+/* ============================================================
+   HOW CLOSE AM I TO A PANIC CHECK?
+
+   Health and Stress were both on the strip and one of them was
+   lying by omission. A pip bar answers "how much Stress" — but
+   the question a player is actually asking is "what happens if
+   the Warden calls for a check", and 2d10 is triangular, so the
+   two are not the same shape at all. Stress 8 is a 28% chance of
+   Panicking. Stress 12 is 64%. On a twenty-segment bar those are
+   four pips and six, at arm's length, in a dark room.
+
+   Nobody is doing that arithmetic at the table, so it goes here,
+   in the smallest honest form: the rule, and the number. The
+   colour band means the reader does not have to interpret the
+   number at a glance, and the title carries the full sentence
+   for anyone who wants to know which way is bad.
+
+   Nothing is shown under Stress 2, where 2d10 cannot fail. An
+   empty scary label is the fastest way to make a real one
+   invisible. */
+function PanicOdds({ stress }) {
+  if (!stress || stress < 2) return null;
+  const p = pct(panicChance(stress));
+  return (
+    <div className={`pstatus-panic is-${panicBand(stress)}`}
+      title={panicOddsSentence(stress)}
+      aria-label={panicOddsSentence(stress)}>
+      <span className="pstatus-panic-k">PANIC</span>
+      <span className="pstatus-panic-v">{p}%</span>
+      <span className="pstatus-panic-rule" aria-hidden="true">2d10 &gt; {stress}</span>
+    </div>
+  );
 }
 
 /** Segmented meter. `warn` flips it to the blood colour. */
@@ -220,7 +256,23 @@ export default function PlayerStatus({ g, waitingOn, duress }) {
       <div className="pstatus-meters">
         <Pips label="HP" value={pc.health} max={pc.maxHealth} warn={pc.health <= pc.maxHealth / 3} />
         <Pips label="ST" value={pc.stress} max={20} warn={pc.stress >= 8} invert />
+        <PanicOdds stress={pc.stress} />
       </div>
+
+      {/* THE CLOCK, WHERE THE CLOCK BELONGS.
+
+          `w.countdowns` was rendered inside the Location panel, in
+          the right-hand drawer, two taps from the log. In a one-shot
+          the countdown *is* the tension — a four-hour cargo window
+          with a thing loose on the station is the entire structure of
+          Ypsilon 14 — and putting it behind a drawer means the table
+          only feels it when somebody thinks to go and look.
+
+          ClockStrip renders nothing at all when nothing is ticking,
+          so this costs no height until it matters, and `compact`
+          keeps it to the two soonest. It stays in the Location panel
+          as well: this is the pressure, that is the detail. */}
+      <ClockStrip w={w} compact />
     </header>
   );
 }
