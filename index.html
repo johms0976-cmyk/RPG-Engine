@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0A0A0B" />
+    <title>Mothership Engine</title>
+    <meta name="description" content="An offline engine for playing Mothership sci-fi horror RPG modules. Runs entirely in the browser — no account, no network, no API key." />
+    <meta property="og:title" content="Mothership Engine" />
+    <meta property="og:description" content="Play Mothership modules offline. Crew, combat, panic, rest and progression, with a local Warden." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0A0B'/%3E%3Crect x='6' y='6' width='20' height='20' fill='none' stroke='%23F5C518' stroke-width='3'/%3E%3C/svg%3E" />
+    <!--
+      INSTALLABLE. The manifest and the service worker in public/ are what
+      let a table add this to a home screen and then play it in a basement.
+      Both paths are relative for the same reason vite.config.js sets a
+      relative base: one build has to work at a project page, at a domain
+      root, and behind the table server.
+
+      The apple-* tags are not redundant with the manifest — iOS still
+      reads its own, and a phone at a table is the likeliest install.
+    -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RPG-Engine" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!--
+      NO WEBFONT LINK. The fonts are npm dependencies — @fontsource/oswald
+      and @fontsource-variable/jetbrains-mono — imported from src/main.jsx
+      and emitted into the build, so they are served by whatever is serving
+      the app. There used to be a <link> to fonts.googleapis.com here as
+      well, which was both redundant and the single thing on this page that
+      would hang for two seconds at a table with no uplink. For an engine
+      whose stated promise is offline operation, that is the wrong trade.
+    -->
+    <style>
+      html, body, #root { margin: 0; padding: 0; min-height: 100%; background: #0A0A0B; }
+      /* Font stack falls back cleanly if the webfonts are blocked or the
+         machine is offline, which for this engine is a supported case. */
+
+      /* The boot notice below lives inside #root. React's createRoot() wipes
+         the container when it mounts, so this is only ever visible when the
+         app did not start — which used to show as a silent black screen. */
+      .boot-notice {
+        color: #EDEAE3;
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        max-width: 34rem;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+        line-height: 1.6;
+        font-size: 0.9rem;
+      }
+      .boot-notice h1 {
+        font-size: 1rem;
+        letter-spacing: 0.12em;
+        color: #F5C518;
+        border-bottom: 2px solid #F5C518;
+        padding-bottom: 0.5rem;
+      }
+      .boot-notice code {
+        background: #1A1A1C;
+        padding: 0.1rem 0.35rem;
+        border-radius: 2px;
+      }
+      .boot-notice a { color: #F5C518; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot-notice">
+        <h1>ENGINE DID NOT BOOT</h1>
+        <p>
+          You are looking at the raw source, not a build. This page is asking for
+          <code>src/main.jsx</code>, which no browser can run directly — it has to be
+          compiled by Vite first.
+        </p>
+        <p>
+          If this is GitHub Pages: open <strong>Settings → Pages → Build and deployment</strong>
+          and set <strong>Source</strong> to <strong>GitHub Actions</strong>, then run the
+          <em>Deploy to GitHub Pages</em> workflow from the Actions tab.
+        </p>
+        <p>
+          If this is your own machine: run <code>npm install</code> then <code>npm run dev</code>,
+          and open the address it prints. Opening <code>index.html</code> straight off disk
+          will not work either.
+        </p>
+      </div>
+    </div>
+    <noscript style="color:#EDEAE3;font-family:monospace;padding:24px;display:block">
+      This engine runs entirely in your browser and needs JavaScript enabled. It does not
+      send anything anywhere.
+    </noscript>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
