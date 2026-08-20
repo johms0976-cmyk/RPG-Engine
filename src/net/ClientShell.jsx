@@ -565,6 +565,11 @@ export default function ClientShell() {
         onWhisperPeer={whisperPeer}
         tableHandout={(snapshot && snapshot.table && snapshot.table.handout) || null}
         tableHandoutOnly={(snapshot && snapshot.table && snapshot.table.only) || null}
+        /* The table's lines and veils. Packed into every snapshot
+           since the protocol was written, read by nothing until
+           now — a contract one party cannot re-read mid-session is
+           not a contract. It lives on the Notes tab. */
+        safety={(snapshot && snapshot.safety) || null}
       />
     );
   }

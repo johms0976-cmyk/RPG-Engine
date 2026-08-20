@@ -19,6 +19,7 @@ import Shop from "./Shop.jsx";
 import WardenDeck from "./WardenDeck.jsx";
 import HoldToRoll from "../ui/HoldToRoll.jsx";
 import FullScreen from "../ui/FullScreen.jsx";
+import PlayerNotes from "./PlayerNotes.jsx";
 import { Evidence, Artefact } from "../ui/Artefact.jsx";
 import FeedLog from "../ui/FeedLog.jsx";
 import { usePressure } from "../ui/usePressure.js";
@@ -53,7 +54,7 @@ import "../ui/tempo.css";
  * keep a visible reason in their place instead — see `Unavailable`.
  */
 export default function Play({
-  g, core, onQuit, net, onWhisper, onWhisperPeer, tableHandout, tableHandoutOnly,
+  g, core, onQuit, net, onWhisper, onWhisperPeer, tableHandout, tableHandoutOnly, safety,
 }) {
   const {
     mod, w, crew, pc, feed, pending, combat, talking, device, resting, levelUp, shopping, items, houseRules,
@@ -69,6 +70,11 @@ export default function Play({
   const [sound, setSound] = useState(false);
   const [assistId, setAssistId] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  /* A pinned clue is news. Without a count on the tab, the board is a
+     place players have to remember to go and look at, which means it
+     is a place they do not go and look at. */
+  const [notesSeen, setNotesSeen] = useState(0);
   const [giving, setGiving] = useState(null);   // itemId being handed over
   const [bigMap, setBigMap] = useState(false);
   const [whisper, setWhisper] = useState("");
@@ -81,6 +87,13 @@ export default function Play({
      The Warden decides what is on the table; the player decides how
      long they look at it. Reset whenever a different one goes up. */
   const [propDown, setPropDown] = useState(null);
+
+  /* The board, and whether it has moved since this player last looked.
+     `w.clues` arrives in every snapshot; counting pinned entries is
+     enough — an unpinned clue is one the Warden has not put up yet. */
+  const pinnedClues = (w.clues || []).filter((c) => !c.resolved);
+  const clueCount = pinnedClues.length;
+  const unreadNotes = Math.max(0, clueCount - notesSeen);
 
   // The Warden's own screen is the one holding the authoritative game.
   const isWarden = !!g.warden;
@@ -176,9 +189,15 @@ export default function Play({
 
   if (!pc) return null;
 
-  /* ---------------- left column: crew + sheet ---------------- */
-  const leftCol = (
-    <>
+  /* ---------------- left column: crew, then sheet ----------------
+
+     These used to be one blob called `leftCol`, rendered both into
+     the "Crew" drawer and into the "Sheet" modal — so the two tabs
+     at the bottom of a phone showed byte-for-byte identical content
+     and there was no way to tell them apart or to guess which one
+     you wanted. They are two different questions now: Crew is "how
+     is everybody else doing", Sheet is "what have I got". */
+  const crewPanel = (
       <Panel title="Crew" icons={`${crew.filter((c) => c.alive !== false).length}/${crew.length}`}>
         <div className="roster">
           {crew.map((c) => (
@@ -203,7 +222,9 @@ export default function Play({
           ))}
         </div>
       </Panel>
+  );
 
+  const sheetPanel = (
       <Panel title={pc.name} icons={`${pc.credits}cr · ${pc.xp}xp`} className="scroll">
         <Bar label="HEALTH" value={pc.health} max={pc.maxHealth} warn={pc.health < pc.maxHealth / 3} />
         <Bar label="STRESS" value={pc.stress} max={20} color="var(--blood)" warn={pc.stress >= 8} />
@@ -268,6 +289,16 @@ export default function Play({
           {pc.trinket} · {pc.patch}
         </div>
       </Panel>
+  );
+
+  /* On a desk there is room for both down the left-hand side, and
+     that was always the right layout there. `.desk-only` is hidden
+     under 780px — see phone.css — so a phone gets the roster in the
+     drawer and the sheet on its own tab. */
+  const leftCol = (
+    <>
+      {crewPanel}
+      <div className="desk-only">{sheetPanel}</div>
     </>
   );
 
@@ -620,11 +651,25 @@ export default function Play({
         <div className="col-right">{rightCol}</div>
       </div>
 
+      {/* FIVE TABS, EACH ONE A DIFFERENT QUESTION.
+
+          The old bar had four and two of them were the same screen.
+          It also drove its own highlight off a `:has()` rule reading
+          the grid's drawer class, which could not see the Sheet at
+          all — so opening the sheet left every tab looking unselected
+          while the modal it opened had no visible way out. The active
+          state is a prop now, and it is honest about all five. */}
       <nav className="mobile-bar" aria-label="Panels">
-        <Btn kind="ghost" className="small" onClick={() => setDrawer(drawer === "left" ? null : "left")}>Crew</Btn>
-        <Btn kind="ghost" className="small" onClick={() => setDrawer(null)}>Log</Btn>
-        <Btn kind="ghost" className="small" onClick={() => setDrawer(drawer === "right" ? null : "right")}>Actions</Btn>
-        <Btn kind="ghost" className="small" onClick={() => setShowSheet(true)}>Sheet</Btn>
+        <Btn kind="ghost" className="small" aria-current={drawer === "left" ? "page" : undefined}
+          onClick={() => setDrawer(drawer === "left" ? null : "left")}>Crew</Btn>
+        <Btn kind="ghost" className="small" aria-current={!drawer ? "page" : undefined}
+          onClick={() => setDrawer(null)}>Log</Btn>
+        <Btn kind="ghost" className="small" aria-current={drawer === "right" ? "page" : undefined}
+          onClick={() => setDrawer(drawer === "right" ? null : "right")}>Actions</Btn>
+        <Btn kind="ghost" className="small" aria-current={showNotes ? "page" : undefined}
+          onClick={() => setShowNotes(true)}>Notes{unreadNotes > 0 ? ` ·${unreadNotes}` : ""}</Btn>
+        <Btn kind="ghost" className="small" aria-current={showSheet ? "page" : undefined}
+          onClick={() => setShowSheet(true)}>Sheet</Btn>
       </nav>
 
       {/* ---------------- modals ---------------- */}
@@ -699,10 +744,29 @@ export default function Play({
       {resting && <RestModal g={g} onClose={() => setResting(null)} />}
       {levelUp && <LevelUp g={g} onClose={() => setLevelUp(null)} />}
       {shopping && <Shop g={g} shopId={shopping} onClose={() => setShopping(null)} />}
+      {/* A FullScreen, not a Modal. The Modal put a 92dvh sheet over
+          the tab bar with no button on it and only an 8% strip of
+          backdrop to tap — on a phone that is a dead end, and it is
+          exactly what players reported. FullScreen has a Done button
+          in a fixed place and honours the back gesture. */}
       {showSheet && (
-        <Modal title="Character sheet" onClose={() => setShowSheet(false)}>
-          <Panel title={pc.name} dark>{leftCol}</Panel>
-        </Modal>
+        <FullScreen title={pc.name} tone="plain" onClose={() => setShowSheet(false)}>
+          {sheetPanel}
+        </FullScreen>
+      )}
+
+      {/* WHAT WE KNOW — the Warden's pinned board, on the phone.
+
+          `state.clues` has been in every snapshot since the protocol
+          was written and `useRemoteGame` has been unpacking it into
+          `g.w.clues` the whole time. Nothing rendered it outside the
+          Warden's own Board view, so a Warden pinning a connection in
+          front of the table was writing to a screen nobody at the
+          table could read. */}
+      {showNotes && (
+        <FullScreen title="What we know" tone="plain" onClose={() => { setShowNotes(false); setNotesSeen(clueCount); }}>
+          <PlayerNotes mod={mod} w={w} crew={crew} pc={pc} safety={safety} />
+        </FullScreen>
       )}
 
       {/* ---------------- handing something over ---------------- */}

@@ -39,6 +39,63 @@
       consequence card — see OutcomeSheet.jsx.
    ============================================================ */
 
+/* ============================================================
+   0. THE SHELL IS TWO ELEMENTS, AND ONE OF THEM HAD NO BOX.
+
+   `ThemeProvider` renders `<div class="app">`. `ClientShell` then
+   renders a *second* `<div class="app">` inside it, inline-styled
+   `display: contents`, so that the dim filter could wrap the
+   modals as well as the page.
+
+   `display: contents` means the element generates no box at all.
+   Three consequences, all of them shipped:
+
+     · `filter` has nothing to apply to, so the dim control did
+       nothing on any screen.
+     · `.app:has(> .play-grid) { height: 100dvh; overflow: hidden }`
+       — the viewport lock this file was written for — matched the
+       inner shell, which cannot have a height. The outer one has
+       the grid as a *grand*child, so `> ` never matched it either.
+       The lock has therefore never applied to a phone.
+     · `body:has(.play-grid) { overflow: hidden }` still fired. So
+       on the play screen the page was taller than the viewport and
+       the page scroll was switched off. Anything below the fold —
+       the tab bar included — was simply unreachable in portrait.
+
+   The fix is to give the inner shell a real box. `!important` is
+   load-bearing here and not laziness: the `display: contents` is
+   an inline style and nothing else can outrank it. Everything
+   below then works as written, because `.app > .join` and friends
+   still match — the inner shell is an `.app` too.
+   ============================================================ */
+
+.app > .app {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 780px) {
+  /* The frame is exactly the glass. Everything that needs to be
+     longer than that scrolls inside it — which is the contract the
+     rest of this file was already written against. */
+  html, body { height: 100%; }
+  #root { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+  .app { height: 100%; min-height: 0; }
+  .app > .app { height: 100%; overflow: hidden; }
+
+  /* Strips and bars keep their height; the one long thing gives. */
+  .app > .app > .net-strip,
+  .app > .app > .pstatus,
+  .app > .app > .mobile-bar { flex: 0 0 auto; }
+
+  /* Nothing at phone width should ever be the whole document's
+     scroller. If a screen is added later and forgets to say so, it
+     gets a scroller rather than a clipped bottom. */
+  .app > .app > * { min-height: 0; }
+}
+
 /* ---------------- 1. viewport lock ---------------- */
 
 @media (max-width: 780px) {
@@ -50,7 +107,7 @@
   body:has(.play-grid) { overflow: hidden; overscroll-behavior: none; }
 
   .app:has(> .play-grid) {
-    height: 100dvh;
+    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
@@ -471,3 +528,104 @@
 }
 .phone-comfort-btn:hover, .phone-comfort-btn:focus-visible { opacity: 0.8; }
 .phone-comfort-btn:focus-visible { outline: 3px solid var(--accent, #F5C518); outline-offset: 2px; }
+
+/* ============================================================
+   6. THE FIVE-TAB BAR, THE WIZARD FOOTER, AND THE DESK COLUMN
+
+   Three fixes that all come from the same place: something that
+   had to stay on the glass was allowed to be pushed off it.
+   ============================================================ */
+
+/* The sheet lives on its own tab now, so the phone's Crew drawer is
+   the roster and nothing else. On a desk there is room for both down
+   the left-hand side, which is where they belong. */
+@media (max-width: 780px) {
+  .desk-only { display: none; }
+}
+
+@media (max-width: 780px) {
+  .mobile-bar { grid-template-columns: repeat(5, 1fr); flex: 0 0 auto; }
+  .mobile-bar .btn { font-size: 10.5px; padding-left: 2px; padding-right: 2px; }
+
+  /* WHICH TAB AM I ON, HONESTLY.
+
+     The old highlight was a `:has()` rule reading the drawer class
+     off the grid. It could not see the Sheet — which was a modal,
+     not a drawer — so opening the sheet left all four tabs dark
+     while the thing it opened had no visible way out. Play.jsx now
+     marks the live tab with aria-current, which is both the correct
+     semantics and a selector that cannot go out of sync. */
+  .mobile-bar .btn[aria-current="page"] {
+    background: var(--fg, #F2EFE6);
+    color: var(--bg, #0A0A0B);
+    border-color: var(--fg, #F2EFE6);
+  }
+}
+
+/* ---------------- the character creator ----------------
+
+   `.wiz-nav` is `position: sticky; bottom: 0`, which pins it to the
+   nearest scrollport. phone.css gave `.wiz` itself `overflow-y:
+   auto`, so the scrollport became the wizard — and a sticky footer
+   inside a container that is exactly as tall as its own content
+   never sticks to anything. The nav sat at the true bottom of a
+   six-hundred-pixel step, below the fold, on a screen whose page
+   scroll had already been disabled by the lock above.
+
+   So: the wizard is a frame, the step body is the scroller, and
+   Next is furniture. Crumbs at the top, Next at the bottom, and
+   only the middle moves — which is what the file's own header
+   comment says it was always meant to be. */
+@media (max-width: 780px) {
+  .app > .wiz {
+    overflow: hidden;
+    min-height: 0;
+    max-width: none;
+  }
+  .wiz-crumbs,
+  .wiz-progress,
+  .wiz-blocked,
+  .wiz-nav { flex: 0 0 auto; }
+
+  .wiz-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* A Panel inside the step must not open a second scroller inside
+     the first — a small window inside a small window is the thing
+     players describe as "it won't scroll". */
+  .wiz-body .panel,
+  .wiz-body .panel > .body { overflow: visible; min-height: 0; }
+
+  .wiz-nav {
+    position: static;
+    grid-template-columns: 1fr 1.6fr;
+  }
+  .wiz-nav .btn { min-height: 48px; }
+}
+
+/* ---------------- full-screen views ----------------
+
+   FullScreen (warden.css) is already a fixed flex frame with a
+   scrolling body and a Done button that never moves — which is
+   exactly why the Sheet and the Notes board are FullScreens now
+   rather than modals. It only wants the touch behaviour a phone
+   expects: momentum, and no rubber-banding the page behind it. */
+.fs-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------- long screens, everywhere else ----------------
+
+   Join, the locker and the offer screen are ordinary documents. The
+   rule above already gives them a scroller; this stops a Panel
+   inside one opening a competing scrollport. */
+@media (max-width: 780px) {
+  .app > .join { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .app > .join .panel,
+  .app > .join .panel > .body { overflow: visible; }
+}
