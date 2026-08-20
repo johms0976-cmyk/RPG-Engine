@@ -1,0 +1,820 @@
+diff --git a/src/engine/crew.js b/src/engine/crew.js
+index d82b691..9d7dbd9 100644
+--- a/src/engine/crew.js
++++ b/src/engine/crew.js
+@@ -56,6 +56,13 @@ export function saveContagion(pc, req, result, crew) {
+     if (others.length)
+       out.push({
+         kind: "stressOthers", ids: others.map((c) => c.id), amount: 1,
++        /* `tag` and `sourceId` exist so a phone can recognise this
++           without matching on the prose. A class rule that fires on
++           somebody else's sheet is the one kind of event a player
++           cannot see coming and cannot look up, so the handset needs
++           to be able to raise it as a card rather than let it scroll
++           past as one more line about somebody else. */
++        tag: "scientistContagion", sourceId: pc.id,
+         text: `${pc.name} makes a sound nobody wants to hear from a scientist. Everyone nearby gains 1 Stress.`,
+       });
+   }
+@@ -69,6 +76,7 @@ export function panicContagion(pc, crew) {
+   if (!others.length) return [];
+   return [{
+     kind: "fearSaveOthers", ids: others.map((c) => c.id),
++    tag: "marineContagion", sourceId: pc.id,
+     text: `${pc.name} is a Marine, and Marines are not supposed to do that. Everyone nearby must make a Fear Save.`,
+   }];
+ }
+@@ -79,6 +87,7 @@ export function deathContagion(dead, crew) {
+   if (!others.length) return [];
+   return [{
+     kind: "panicOthers", ids: others.map((c) => c.id),
++    tag: "crewDeath", sourceId: dead.id,
+     text: `${dead.name} is dead, and everyone saw it.`,
+   }];
+ }
+@@ -93,6 +102,7 @@ export function multiPanicContagion(justPanicked, crew) {
+   if (!ids.length) return [];
+   return [{
+     kind: "panicOthers", ids,
++    tag: "multiPanic", sourceId: null,
+     text: "Two of them go at once. Whatever was holding the room together is not holding it any more.",
+   }];
+ }
+diff --git a/src/engine/useGame.js b/src/engine/useGame.js
+index 0c63d31..bbab130 100644
+--- a/src/engine/useGame.js
++++ b/src/engine/useGame.js
+@@ -318,7 +318,7 @@ export function useGame(mod, settings = {}) {
+     // Class contagion
+     for (const c of saveContagion(pc, req, r, crewNear(pc))) {
+       if (c.kind === "stressOthers") {
+-        say("stress", c.text);
++        say("stress", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
+         commitCrew(C().map((x) => (c.ids.includes(x.id) ? { ...x, stress: x.stress + c.amount } : x)));
+       }
+     }
+@@ -350,7 +350,8 @@ export function useGame(mod, settings = {}) {
+     // Teamster: one Panic Effect re-roll per session.
+     if (pc.cls === "teamster" && !pc.usedPanicReroll && effRoll + pc.stress - pc.resolve >= 14) {
+       const second = dN(2, 10);
+-      say("panic", `${pc.name} is a Teamster and has seen worse. Re-rolling ${effRoll} → ${second}.`);
++      say("panic", `${pc.name} is a Teamster and has seen worse. Re-rolling ${effRoll} → ${second}.`,
++        { classfx: "teamsterReroll", by: pc.id, ids: [pc.id] });
+       effRoll = Math.min(effRoll, second);
+       patchPc(pc.id, (c) => ({ ...c, usedPanicReroll: true }));
+     }
+@@ -401,7 +402,7 @@ export function useGame(mod, settings = {}) {
+ 
+     // Marine contagion
+     for (const c of panicContagion(pc, crewNear(pc))) {
+-      say("panic", c.text);
++      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
+       c.ids.forEach((id) => rollNow({ kind: "save", name: "fear", pcId: id, why: "a Marine just broke", autoPanic: false }));
+     }
+     return true;
+@@ -415,7 +416,7 @@ export function useGame(mod, settings = {}) {
+     for (const item of q) if (doPanic(item.pcId)) panicked.push(item.pcId);
+     // More than one at once is itself a trigger (PSG 26.2).
+     for (const c of multiPanicContagion(panicked, crewNear(findPc(C(), panicked[0])))) {
+-      say("panic", c.text);
++      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
+       c.ids.forEach((id) => doPanic(id));
+     }
+   }, [doPanic, say]);
+@@ -434,7 +435,7 @@ export function useGame(mod, settings = {}) {
+   const afterCrewLoss = useCallback((pcId) => {
+     const dead = findPc(C(), pcId);
+     for (const c of deathContagion(dead, crewNear(dead))) {
+-      say("panic", c.text);
++      say("panic", c.text, { classfx: c.tag, by: c.sourceId, ids: c.ids });
+       c.ids.forEach((id) => queuePanic(id, "crewDeath"));
+     }
+     const left = C().filter((c) => c.alive !== false);
+@@ -485,8 +486,18 @@ export function useGame(mod, settings = {}) {
+ 
+     /* --- 0 Health: Body Save or die (PSG 10.4) --- */
+     const r = check(pc.saves.body, "none", { advTieBreak: houseRules.advTieBreak });
++    /* THE ONE ROLL THAT IS NOT A LINE IN A LOG.
++
++       Reaching 0 Health and making a Body Save is the most
++       consequential thing that happens to a character, and until
++       now it was one entry in a scrolling feed on a 6-inch screen,
++       between a damage line and a room description. The structured
++       copy lets a phone give it the whole display — see
++       ui/DeathTakeover.jsx — without anything having to parse the
++       prose back out again. */
+     say(r.success ? "rollgood" : "rollbad",
+-      `DEATH · ${pc.name} — Body Save ${pc.saves.body}%, rolled ${pad(r.value)} · ${r.success ? "falls unconscious" : "dies"}.`);
++      `DEATH · ${pc.name} — Body Save ${pc.saves.body}%, rolled ${pad(r.value)} · ${r.success ? "falls unconscious" : "dies"}.`,
++      { death: { pcId: pc.id, name: pc.name, save: pc.saves.body, roll: r.value, survived: !!r.success, why: why || null } });
+     if (!r.success) { killPc(pc.id, why); return; }
+ 
+     const roll = d(10);
+diff --git a/src/net/ClientShell.jsx b/src/net/ClientShell.jsx
+index 7c5720f..a675972 100644
+--- a/src/net/ClientShell.jsx
++++ b/src/net/ClientShell.jsx
+@@ -57,6 +57,9 @@ import SafetyCard from "./SafetyCard.jsx";
+ import Spotlight from "../ui/Spotlight.jsx";
+ import Duress from "../ui/Duress.jsx";
+ import PanicTakeover, { panicFrom } from "../ui/PanicTakeover.jsx";
++import DeathTakeover, { deathFrom } from "../ui/DeathTakeover.jsx";
++import ClassAlert from "../ui/ClassAlert.jsx";
++import { classAlert } from "../engine/classfx.js";
+ import { SituationBanner, SceneChip, HeldStrip } from "../ui/SituationBanner.jsx";
+ import TradeOffer from "../ui/TradeOffer.jsx";
+ import RecapCard from "../ui/RecapCard.jsx";
+@@ -158,6 +161,16 @@ export default function ClientShell() {
+      the takeover is punctuation on top of a record, not instead of one. */
+   const [panic, setPanic] = useState(null);
+   const lastPanicId = React.useRef(0);
++  /* 0 Health, and the roll that decided. Held separately from the
++     panic takeover because it does not lift on its own — see
++     ui/DeathTakeover.jsx for why that difference is the point. */
++  const [death, setDeath] = useState(null);
++  const lastDeathId = React.useRef(0);
++  /* A class rule that fired on somebody else's sheet and landed on
++     this one. Newest wins; these do not queue, because four of them
++     stacked during a bad round is a wall, not information. */
++  const [classFx, setClassFx] = useState(null);
++  const lastClassId = React.useRef(0);
+   /* The recap the Warden put up, once this phone has read it. */
+   const [recapDown, setRecapDown] = useState(0);
+   /* WHEN THE LINE WENT QUIET, AND HOW QUIET.
+@@ -277,6 +290,21 @@ export default function ClientShell() {
+ 
+     if (msg.t === "denied") {
+       setNotice(DENIAL_TEXT[msg.reason] || msg.reason);
++      /* AN OFFER THAT WAS NEVER DELIVERED IS NOT AN OFFER PENDING.
++
++         A phone that submitted a character while no Warden was
++         attached got `no-warden` back, showed it as a four-second
++         toast, and then sat on "Waiting for the Warden · Sending…"
++         for the rest of the evening — with a Warden who, by
++         definition, had never seen it. The toast was the only
++         evidence and it deleted itself.
++
++         The offer is marked unsent instead, so the waiting room says
++         what happened and there is something to press when the
++         Warden's screen finally connects. */
++      if (msg.reason === "no-warden") {
++        setOffer((o) => (o ? { ...o, state: "unsent" } : o));
++      }
+       if (msg.reason === "taken") { setPcId(null); setClaiming(null); }
+       if (msg.reason === "rejected") setOffer((o) => (o ? { ...o, state: "rejected" } : o));
+       // A refused intent is a finished intent: let the buttons back on.
+@@ -445,6 +473,41 @@ export default function ClientShell() {
+     }
+   }, [inPlay, g && g.feed, pcId]);
+ 
++  /* 0 HEALTH. Scanned separately from Panic rather than folded into
++     the same loop: a Body Save at 0 Health can arrive in the same
++     snapshot as the Panic that watching it caused somebody else, and
++     the two must not race for one slot. `extra.death` is stamped by
++     the engine, so nothing here reads prose. */
++  useEffect(() => {
++    if (!inPlay || !g || !g.feed) return;
++    for (let i = g.feed.length - 1; i >= 0; i--) {
++      const line = g.feed[i];
++      if (!line.extra || !line.extra.death) continue;
++      if (line.id <= lastDeathId.current) break;
++      const ev = deathFrom(line, pcId);
++      lastDeathId.current = line.id;
++      if (ev) setDeath(ev);
++      break;
++    }
++  }, [inPlay, g && g.feed, pcId]);
++
++  /* A class rule firing on this phone because of somebody else's
++     sheet. The only rules in Mothership a player cannot look up when
++     they happen, because the sheet they are written on is in another
++     person's hand. */
++  useEffect(() => {
++    if (!inPlay || !g || !g.feed) return;
++    for (let i = g.feed.length - 1; i >= 0; i--) {
++      const line = g.feed[i];
++      if (!line.extra || !line.extra.classfx) continue;
++      if (line.id <= lastClassId.current) break;
++      lastClassId.current = line.id;
++      const card = classAlert(line, pcId, (g && g.crew) || []);
++      if (card) setClassFx(card);
++      break;
++    }
++  }, [inPlay, g && g.feed, pcId]);
++
+   // A snapshot means the world moved, so whatever was being held is not.
+   useEffect(() => { setHolding(null); }, [seq]);
+ 
+@@ -485,7 +548,10 @@ export default function ClientShell() {
+     send({ t: "submit", character: file });
+     setLocker(false);
+     setBuilding(false);
+-    setOffer({ state: "pending", pc: file.pc });
++    // The whole file, not just its `pc`, so a resend after `no-warden`
++    // sends the character that was actually built rather than a
++    // reconstruction of it.
++    setOffer({ state: "pending", pc: file.pc, file });
+   }, [send]);
+ 
+   const withdraw = useCallback(() => {
+@@ -521,6 +587,11 @@ export default function ClientShell() {
+   if (offer) {
+     body = (
+       <OfferStatus offer={offer} onWithdraw={withdraw}
++        onResend={() => {
++          if (!offer.pc) return;
++          send({ t: "submit", character: offer.file || offer.pc });
++          setOffer((o) => (o ? { ...o, state: "pending" } : o));
++        }}
+         onAgain={() => { setOffer(null); setBuilding(true); }} />
+     );
+   } else if (building && mod) {
+@@ -604,6 +675,10 @@ export default function ClientShell() {
+             something does not stop while you read your inventory. */}
+         {inPlay && <Duress duress={duress} />}
+         <PanicTakeover event={panic} onDone={() => setPanic(null)} />
++        {/* Above Panic in the stack, because 0 Health outranks it and
++            because this one waits to be acknowledged. */}
++        <DeathTakeover event={death} onDismiss={() => setDeath(null)} />
++        <ClassAlert alert={classFx} onDismiss={() => setClassFx(null)} />
+         <Spotlight spot={spot} onDone={() => setSpot(null)} />
+         {/* Outside every other screen and above every modal, on purpose:
+             the moment you most need this is the moment the game is most
+@@ -678,9 +753,43 @@ export function ConnectionStrip({ since, status }) {
+    The waiting room. Its whole job is to be a screen with nothing
+    on it to press twice.
+    ============================================================ */
+-export function OfferStatus({ offer, onWithdraw, onAgain }) {
++export function OfferStatus({ offer, onWithdraw, onAgain, onResend }) {
+   const pc = offer.pc || {};
+ 
++  /* The relay took it and had nowhere to put it. Distinct from
++     "rejected" — nobody has looked at this and decided anything;
++     there was simply no Warden attached to the table when it was
++     sent. Saying so is the difference between a screen that is
++     waiting and a screen that is stuck. */
++  if (offer.state === "unsent") {
++    return (
++      <div className="join">
++        <Panel title="Nobody picked that up">
++          <div className="stack">
++            <p style={{ margin: 0 }}>
++              <strong>{pc.name}</strong> did not reach anyone. The table server
++              is running — you are talking to it — but the Warden&apos;s screen
++              is not attached to it, so there was nowhere to deliver this.
++            </p>
++            <div className="note-box">
++              Worth saying out loud. If the top of their screen says anything
++              other than a list of phones, that is the problem — and on the
++              machine running the server the Warden screen has to be the
++              <code> localhost </code> address, not the one your phone uses.
++            </div>
++            <div className="btn-grid">
++              {onResend && <Btn kind="primary" onClick={onResend}>Send it again</Btn>}
++              <Btn kind="ghost" onClick={onAgain}>Change something first</Btn>
++            </div>
++            <p className="clue-meta" style={{ margin: 0 }}>
++              A copy is in your locker either way, so nothing is lost.
++            </p>
++          </div>
++        </Panel>
++      </div>
++    );
++  }
++
+   if (offer.state === "rejected") {
+     return (
+       <div className="join">
+diff --git a/src/net/PlayerStatus.jsx b/src/net/PlayerStatus.jsx
+index 202dff8..0bcc653 100644
+--- a/src/net/PlayerStatus.jsx
++++ b/src/net/PlayerStatus.jsx
+@@ -25,6 +25,8 @@ import { currentTurn } from "../engine/combat.js";
+ import { DURESS } from "../engine/duress.js";
+ import { tempoOf, sceneHolder, scenePosition, sceneSpent, WAIT_TEXT } from "../engine/tempo.js";
+ import { roomOf, othersHere, isSplit } from "../engine/party.js";
++import { panicChance, panicBand, pct, panicOddsSentence } from "../engine/odds.js";
++import ClockStrip from "../ui/Clocks.jsx";
+ 
+ /* ROOM CONDITIONS THE PLAYER IS STANDING IN.
+ 
+@@ -81,6 +83,40 @@ function princeState(w, room) {
+   return { label: "PRINCE", text: "with you" };
+ }
+ 
++/* ============================================================
++   HOW CLOSE AM I TO A PANIC CHECK?
++
++   Health and Stress were both on the strip and one of them was
++   lying by omission. A pip bar answers "how much Stress" — but
++   the question a player is actually asking is "what happens if
++   the Warden calls for a check", and 2d10 is triangular, so the
++   two are not the same shape at all. Stress 8 is a 28% chance of
++   Panicking. Stress 12 is 64%. On a twenty-segment bar those are
++   four pips and six, at arm's length, in a dark room.
++
++   Nobody is doing that arithmetic at the table, so it goes here,
++   in the smallest honest form: the rule, and the number. The
++   colour band means the reader does not have to interpret the
++   number at a glance, and the title carries the full sentence
++   for anyone who wants to know which way is bad.
++
++   Nothing is shown under Stress 2, where 2d10 cannot fail. An
++   empty scary label is the fastest way to make a real one
++   invisible. */
++function PanicOdds({ stress }) {
++  if (!stress || stress < 2) return null;
++  const p = pct(panicChance(stress));
++  return (
++    <div className={`pstatus-panic is-${panicBand(stress)}`}
++      title={panicOddsSentence(stress)}
++      aria-label={panicOddsSentence(stress)}>
++      <span className="pstatus-panic-k">PANIC</span>
++      <span className="pstatus-panic-v">{p}%</span>
++      <span className="pstatus-panic-rule" aria-hidden="true">2d10 &gt; {stress}</span>
++    </div>
++  );
++}
++
+ /** Segmented meter. `warn` flips it to the blood colour. */
+ function Pips({ label, value, max, warn, invert }) {
+   const n = Math.max(1, Math.min(12, max || 1));
+@@ -220,7 +256,23 @@ export default function PlayerStatus({ g, waitingOn, duress }) {
+       <div className="pstatus-meters">
+         <Pips label="HP" value={pc.health} max={pc.maxHealth} warn={pc.health <= pc.maxHealth / 3} />
+         <Pips label="ST" value={pc.stress} max={20} warn={pc.stress >= 8} invert />
++        <PanicOdds stress={pc.stress} />
+       </div>
++
++      {/* THE CLOCK, WHERE THE CLOCK BELONGS.
++
++          `w.countdowns` was rendered inside the Location panel, in
++          the right-hand drawer, two taps from the log. In a one-shot
++          the countdown *is* the tension — a four-hour cargo window
++          with a thing loose on the station is the entire structure of
++          Ypsilon 14 — and putting it behind a drawer means the table
++          only feels it when somebody thinks to go and look.
++
++          ClockStrip renders nothing at all when nothing is ticking,
++          so this costs no height until it matters, and `compact`
++          keeps it to the two soonest. It stays in the Location panel
++          as well: this is the pressure, that is the detail. */}
++      <ClockStrip w={w} compact />
+     </header>
+   );
+ }
+diff --git a/src/screens/Play.jsx b/src/screens/Play.jsx
+index e478416..279ddaa 100644
+--- a/src/screens/Play.jsx
++++ b/src/screens/Play.jsx
+@@ -20,6 +20,8 @@ import WardenDeck from "./WardenDeck.jsx";
+ import HoldToRoll from "../ui/HoldToRoll.jsx";
+ import FullScreen from "../ui/FullScreen.jsx";
+ import PlayerNotes from "./PlayerNotes.jsx";
++import TurnActions from "../ui/TurnActions.jsx";
++import { classLine } from "../engine/classfx.js";
+ import { Evidence, Artefact } from "../ui/Artefact.jsx";
+ import FeedLog from "../ui/FeedLog.jsx";
+ import { usePressure } from "../ui/usePressure.js";
+@@ -256,6 +258,24 @@ export default function Play({
+         <Label>SKILLS</Label>
+         <div style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{pc.skills.join(", ") || "none"}</div>
+ 
++        {/* WHAT YOUR CLASS DOES TO EVERYONE ELSE.
++
++            The only rule on a Mothership sheet that is not about its
++            owner, and the only one a player has no way to look up when
++            it fires — because when a Marine Panics, the person who has
++            to roll is holding a different phone. It was written down
++            once, during character creation, and then never again.
++
++            Permanent, on the sheet, in the second person. The matching
++            half — a card on the phone of the person it landed on —
++            is engine/classfx.js. */}
++        {classLine(pc.cls) && (
++          <>
++            <Label>AND EVERYONE NEAR YOU</Label>
++            <p className="classline">{classLine(pc.cls)}</p>
++          </>
++        )}
++
+         <Label>CARRYING</Label>
+         <div className="btn-grid">
+           {pc.items.map((id) => {
+@@ -434,6 +454,31 @@ export default function Play({
+                 </div>
+               )}
+ 
++              {/* The fourteen-bullet answer to "what is an action",
++                  collapsed, on your turn only. See ui/TurnActions.jsx
++                  for why it is a reference and not more buttons. */}
++              {myTurn && actor && (
++                <TurnActions
++                  actionsLeft={actor.actions}
++                  ctx={{
++                    actions: actor.actions,
++                    held: !!heldBy,
++                    target: !!target,
++                    armed: weapons.some((id) => canFire(pc, id, items[id], houseRules).ok),
++                    reloadable: weapons.some((id) => items[id].shots && (pc.ammo[id] ?? items[id].shots) < items[id].shots),
++                    carrying: pc.items.length > 0,
++                    /* No `drug` flag in gear.js, and inventing one would
++                       mean touching every module's item table. A thing
++                       you take is a thing that heals, calms or buffs. */
++                    hasDrug: pc.items.some((id) => {
++                      const it = items[id];
++                      return !!it && !!(it.heal || it.calm || it.buff);
++                    }),
++                    others: crew.some((c) => c.id !== pc.id && c.alive !== false),
++                  }}
++                />
++              )}
++
+               <ActionGroup label={`Target — ${target ? `${target.name}, ${target.distance}m` : "none"}`}>
+                 {enemies.map((e) => (
+                   <Btn key={e.uid} kind={target && e.uid === target.uid ? "accent" : "default"}
+@@ -636,7 +681,9 @@ export default function Play({
+                 that stops new lines yanking you off what you were
+                 reading, and a timestamp per line so "when was that?"
+                 is answerable thirty seconds later. */}
+-            <FeedLog feed={feed} crew={crew} />
++            {/* myPcId so an addressed line can say who else got it —
++                see audienceBadge in FeedLog.jsx. */}
++            <FeedLog feed={feed} crew={crew} myPcId={pc.id} />
+           </Panel>
+ 
+           <form onSubmit={submit} className="cmdbar">
+@@ -829,7 +876,7 @@ export default function Play({
+           <Artefact id={tableHandout} handout={mod.handouts[tableHandout]} flat />
+           <p className="clue-meta" style={{ textAlign: "center", marginTop: 12 }}>
+             {tableHandoutOnly && tableHandoutOnly.includes(pc.id)
+-              ? "You are being shown this and the rest of the table is not. What you do with that is yours."
++              ? "ONLY YOU · You are being shown this and the rest of the table is not. What you do with that is yours."
+               : "The Warden is holding this up. Putting it down only puts it down for you — it stays in your Evidence, and on the table screen."}
+           </p>
+         </FullScreen>
+diff --git a/src/screens/PlayerNotes.jsx b/src/screens/PlayerNotes.jsx
+index f24c0f9..95bf072 100644
+--- a/src/screens/PlayerNotes.jsx
++++ b/src/screens/PlayerNotes.jsx
+@@ -39,6 +39,7 @@
+ import React from "react";
+ import { Panel } from "../ui/kit.jsx";
+ import ClueBoard from "../ui/ClueBoard.jsx";
++import { CLASS_EFFECTS } from "../engine/classfx.js";
+ 
+ /* ---------------- the reference card ----------------
+ 
+@@ -183,10 +184,34 @@ export default function PlayerNotes({ mod, w, crew, pc, safety }) {
+ 
+       <Panel title="Stress, Panic and dying">
+         <Facts rows={STRESS} />
++      </Panel>
++
++      {/* THE FOUR RULES THAT ARE ABOUT SOMEBODY ELSE.
++
++          Every one of these lives on one player's sheet and fires on
++          another player's. Whichever class you are, three of the four
++          are things that will happen *to* you with no warning and no
++          way to look them up, because the sheet that explains them is
++          in somebody else's hand. So all four go here, once, where
++          anybody can read the whole set. Your own is also permanently
++          on the Sheet tab, in the second person. */}
++      <Panel title="What each class does to the room">
++        <div className="stack">
++          {Object.entries(CLASS_EFFECTS).map(([key, e]) => (
++            <div key={key} className="clue">
++              <span className="clue-kind">{e.name}</span>
++              <span>
++                {e.you}
++                <span className="clue-meta" style={{ display: "block", marginTop: 2 }}>
++                  {e.when}
++                </span>
++              </span>
++            </div>
++          ))}
++        </div>
+         <p className="clue-meta" style={{ margin: "8px 0 0" }}>
+-          Your class changes how this goes for everyone else — a Marine who
+-          Panics puts the room on a Fear Save, a Scientist who fails Sanity
+-          hands out Stress. Check your own on the Sheet tab.
++          If one of these fires on you, a card says so at the time. You should
++          not have to work out why you gained a point of Stress.
+         </p>
+       </Panel>
+     </div>
+diff --git a/src/ui/FeedLog.jsx b/src/ui/FeedLog.jsx
+index 7f14fe3..6626b8e 100644
+--- a/src/ui/FeedLog.jsx
++++ b/src/ui/FeedLog.jsx
+@@ -70,8 +70,48 @@ const stamp = (clock) => {
+   return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+ };
+ 
++/* ============================================================
++   WHO ELSE CAN SEE THIS LINE.
++
++   `register()` has always given an addressed line its own visual
++   register, and that was the right instinct half-executed: it
++   tells you the line is *different*, not that it is *private*,
++   and those are not the same thought at a table.
++
++   Mothership runs on the gap between what the table knows and
++   what you know. secrets.js does careful work keeping the two
++   apart — a room description reaches the four people standing in
++   the room and nobody else — but the interface then presented
++   everything at one volume, so a player could not tell which of
++   the things on their screen the person beside them could also
++   read. And a player who is not sure they are the only one who
++   knows says nothing, which is the exact opposite of what the
++   mechanic is for.
++
++   So an addressed line says who it reached. `to` survives
++   redaction (see visibleFeed) and is either one pcId or a list,
++   so the count is arithmetic rather than a guess.
++
++   Not marked, deliberately: a distorted reading. distort.js
++   exists to make a hallucinating player mistrust their own eyes,
++   and a badge saying "this one is a lie" would end that in one
++   glance. What you are not told, you cannot check. */
++function audienceBadge(line, crew, myPcId) {
++  if (line.kind === "whisper") return { label: "ONLY YOU", solo: true };
++  if (line.to == null) return null;
++  const to = Array.isArray(line.to) ? line.to : [line.to];
++  const able = (crew || []).filter((c) => c.alive !== false);
++  // Addressed to everybody still standing is not private, it is just
++  // how a room description is routed. Saying "6 OF YOU" there would
++  // make the badge wallpaper and the real ones invisible.
++  if (able.length && to.length >= able.length) return null;
++  if (to.length === 1) return { label: "ONLY YOU", solo: true };
++  const others = to.filter((id) => id !== myPcId).length;
++  return { label: `${to.length} OF YOU`, solo: false, others };
++}
++
+ export default function FeedLog({
+-  feed = [], crew = [], emptyText = "Nothing yet.", showStamps = true,
++  feed = [], crew = [], myPcId = null, emptyText = "Nothing yet.", showStamps = true,
+ }) {
+   const scroller = useRef(null);
+   const end = useRef(null);
+@@ -138,6 +178,7 @@ export default function FeedLog({
+           const first = !dividerDrawn && line.id > seenId && unread > 0 && !stuck;
+           if (first) dividerDrawn = true;
+           const who = line.npc ? null : nameOf(line.pcId || line.by);
++          const badge = audienceBadge(line, crew, myPcId);
+ 
+           if (reg === "beat") {
+             return (
+@@ -153,7 +194,7 @@ export default function FeedLog({
+           return (
+             <React.Fragment key={line.id}>
+               {first && <Divider n={unread} />}
+-              <p className={`feedlog-line k-${line.kind} is-${reg}${line.phantom ? " is-phantom" : ""}`}>
++              <p className={`feedlog-line k-${line.kind} is-${reg}${line.phantom ? " is-phantom" : ""}${badge ? " is-private" : ""}`}>
+                 {showStamps && (
+                   <span className="feedlog-meta" aria-hidden="true">
+                     <i className="feedlog-clock">{stamp(line.clock)}</i>
+@@ -161,6 +202,17 @@ export default function FeedLog({
+                     {line.live && <i className="feedlog-live" title="The Warden said this">·</i>}
+                   </span>
+                 )}
++                {badge && (
++                  <span className={`feedlog-only${badge.solo ? " is-solo" : ""}`}
++                    title={badge.solo
++                      ? "Nobody else at this table was sent this line."
++                      : `${badge.label.toLowerCase()} were sent this line. Nobody else was.`}
++                    aria-label={badge.solo
++                      ? "Only you were sent this"
++                      : `Sent to ${badge.label.toLowerCase()}`}>
++                    {badge.label}
++                  </span>
++                )}
+                 <span className="feedlog-text">{line.text}</span>
+               </p>
+             </React.Fragment>
+diff --git a/src/ui/phone.css b/src/ui/phone.css
+index 7d17f08..3f845a5 100644
+--- a/src/ui/phone.css
++++ b/src/ui/phone.css
+@@ -629,3 +629,221 @@
+   .app > .join .panel,
+   .app > .join .panel > .body { overflow: visible; }
+ }
++
++/* ============================================================
++   7. THE NUMBERS THAT MATTER, AND THE MOMENTS THAT DO
++
++   Everything below is one of five things a player asks that the
++   interface previously answered in the same voice it used for
++   everything else: how close am I to Panic, how long have we got,
++   what are my two actions, am I the only one who saw that, and
++   did I just die.
++   ============================================================ */
++
++/* ---------------- panic odds ----------------
++
++   Third item on the meter row. It is a number rather than a bar
++   because it is the one figure on the strip that does not have a
++   maximum to be a fraction of — and because 64% read as a shape
++   is just another bar, which is the problem it exists to fix. */
++.pstatus-panic {
++  display: flex; align-items: baseline; gap: 5px;
++  font-family: var(--mono, monospace);
++  grid-column: 1 / -1;
++  margin-top: 3px;
++  padding-top: 3px;
++  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
++}
++.pstatus-panic-k { font-size: 9px; letter-spacing: 0.1em; opacity: 0.65; }
++.pstatus-panic-v { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
++.pstatus-panic-rule { font-size: 9px; letter-spacing: 0.06em; opacity: 0.5; margin-left: auto; }
++
++/* The band does the reading for you. Nothing shouts below a fifth,
++   because a strip that is always alarmed is a strip nobody reads. */
++.pstatus-panic.is-low .pstatus-panic-v { opacity: 0.75; }
++.pstatus-panic.is-real .pstatus-panic-v { color: var(--accent, #F5C518); }
++.pstatus-panic.is-likely .pstatus-panic-v { color: var(--blood, #8B1A1A); }
++.pstatus-panic.is-certain .pstatus-panic-v {
++  color: var(--bone, #F2EFE6);
++  background: var(--blood, #8B1A1A);
++  padding: 0 5px;
++}
++/* On the yellow "your turn" strip the blood red is unreadable, so
++   the emphasis moves to the ink the strip is already using. */
++.pstatus[data-state="mine"] .pstatus-panic.is-likely .pstatus-panic-v,
++.pstatus[data-state="mine"] .pstatus-panic.is-real .pstatus-panic-v {
++  color: var(--ink, #111112);
++  text-decoration: underline;
++}
++
++/* The clock, inside the permanent strip rather than behind a drawer. */
++.pstatus .clockstrip {
++  grid-column: 1 / -1;
++  margin-top: 4px;
++  padding-top: 4px;
++  border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
++}
++
++/* ---------------- the standing class rule ---------------- */
++.classline {
++  margin: 4px 0 0;
++  font-size: 12px; line-height: 1.5;
++  border-left: 3px solid var(--accent, #F5C518);
++  padding-left: 9px;
++  opacity: 0.9;
++}
++
++/* ---------------- what an action is ---------------- */
++.turnref {
++  border: 1px solid color-mix(in srgb, var(--fg, #F2EFE6) 28%, transparent);
++  margin-bottom: 8px;
++}
++.turnref-head {
++  display: flex; align-items: center; gap: 8px; width: 100%;
++  background: none; border: 0; cursor: pointer;
++  padding: 9px 10px;
++  color: inherit; font: inherit;
++  font-family: var(--mono, monospace); font-size: 11px;
++  text-align: left;
++}
++.turnref-count { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
++.turnref-hint { opacity: 0.6; }
++.turnref-chev { margin-left: auto; opacity: 0.6; }
++.turnref-lede,
++.turnref-foot {
++  margin: 0 10px 8px;
++  font-size: 11.5px; line-height: 1.5; opacity: 0.75;
++}
++.turnref-foot { border-top: 1px dotted color-mix(in srgb, var(--fg, #F2EFE6) 25%, transparent); padding-top: 8px; }
++.turnref-list { list-style: none; margin: 0 0 8px; padding: 0; }
++.turnref-list li {
++  display: flex; gap: 10px; align-items: baseline;
++  padding: 5px 10px;
++  font-size: 12.5px; line-height: 1.4;
++}
++.turnref-list li + li { border-top: 1px solid color-mix(in srgb, var(--fg, #F2EFE6) 12%, transparent); }
++.turnref-label { flex: 1; min-width: 0; }
++.turnref-cost {
++  font-family: var(--mono, monospace); font-size: 9.5px;
++  letter-spacing: 0.06em; text-transform: uppercase;
++  opacity: 0.6; white-space: nowrap; flex-shrink: 0;
++}
++/* Off, with the reason, rather than absent. This is the one list in
++   the client that teaches rather than offers — see TurnActions.jsx. */
++.turnref-list li.is-off { opacity: 0.42; }
++.turnref-list li.is-off .turnref-label { text-decoration: line-through; text-decoration-thickness: 1px; }
++
++/* ---------------- who else saw that ---------------- */
++.feedlog-only {
++  display: inline-block;
++  font-family: var(--mono, monospace); font-size: 8.5px;
++  letter-spacing: 0.12em; font-weight: 700;
++  border: 1px solid currentColor;
++  padding: 0 4px; margin-right: 6px;
++  vertical-align: 1px;
++  opacity: 0.75;
++}
++.feedlog-only.is-solo { color: var(--accent, #F5C518); opacity: 1; }
++
++/* ---------------- a class rule landing on you ---------------- */
++.classfx {
++  position: fixed; z-index: 59;
++  left: 8px; right: 8px;
++  bottom: calc(70px + env(safe-area-inset-bottom));
++  display: flex; justify-content: center;
++  pointer-events: none;
++}
++.classfx-card {
++  pointer-events: auto;
++  display: flex; flex-direction: column; gap: 3px;
++  width: 100%; max-width: 30rem;
++  text-align: left; font: inherit; cursor: pointer;
++  background: var(--bone, #F2EFE6);
++  color: var(--ink, #111112);
++  border: 2px solid var(--ink, #111112);
++  border-left: 6px solid var(--accent, #F5C518);
++  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
++  padding: 9px 12px;
++  animation: classfx-in 180ms ease-out;
++}
++.classfx-kicker {
++  font-family: var(--mono, monospace); font-size: 9px;
++  letter-spacing: 0.14em; opacity: 0.7;
++}
++.classfx-title {
++  font-family: var(--display, sans-serif); font-weight: 700;
++  font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase;
++}
++.classfx-body { font-size: 12.5px; line-height: 1.45; }
++@keyframes classfx-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
++
++/* ---------------- 0 Health ----------------
++
++   The only overlay in the client that does not lift on its own.
++   z-index above the panic takeover because if both are on screen
++   the Body Save is the one being waited on. */
++.deathover {
++  position: fixed; inset: 0; z-index: 90;
++  display: flex; align-items: center; justify-content: center;
++  padding: 24px;
++  background: rgba(6, 6, 7, 0.94);
++  animation: deathover-in 260ms ease-out;
++}
++.deathover-inner {
++  width: 100%; max-width: 26rem;
++  border: 3px solid var(--bone, #F2EFE6);
++  background: var(--void, #0A0A0B);
++  color: var(--bone, #F2EFE6);
++  padding: 20px 18px 18px;
++  text-align: center;
++}
++.deathover.is-dead .deathover-inner { border-color: var(--blood, #8B1A1A); }
++.deathover-kicker {
++  display: block;
++  font-family: var(--mono, monospace); font-size: 9.5px;
++  letter-spacing: 0.18em; opacity: 0.7;
++}
++.deathover-name {
++  display: block; margin: 8px 0 14px;
++  font-family: var(--display, sans-serif); font-weight: 700;
++  font-size: clamp(30px, 12vw, 52px); line-height: 0.95;
++  letter-spacing: 0.06em;
++}
++.deathover.is-dead .deathover-name { color: var(--blood, #8B1A1A); }
++
++/* What you needed, and what you got. */
++.deathover-maths {
++  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
++  background: color-mix(in srgb, var(--bone, #F2EFE6) 30%, transparent);
++  border: 1px solid color-mix(in srgb, var(--bone, #F2EFE6) 30%, transparent);
++  margin-bottom: 14px;
++}
++.deathover-maths span {
++  background: var(--void, #0A0A0B);
++  padding: 8px 6px;
++  font-family: var(--mono, monospace); font-size: 15px; font-weight: 700;
++}
++.deathover-maths i {
++  display: block; font-style: normal;
++  font-size: 8.5px; letter-spacing: 0.14em; opacity: 0.55; margin-bottom: 3px;
++}
++.deathover-body { margin: 0 0 10px; font-size: 13px; line-height: 1.5; text-align: left; }
++.deathover-who {
++  margin: 0 0 14px;
++  font-family: var(--mono, monospace); font-size: 10px;
++  letter-spacing: 0.16em; opacity: 0.6;
++}
++.deathover-go {
++  width: 100%; min-height: 52px;
++  font: inherit; font-family: var(--display, sans-serif); font-weight: 700;
++  font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
++  background: var(--bone, #F2EFE6); color: var(--ink, #111112);
++  border: 2px solid var(--bone, #F2EFE6);
++  cursor: pointer;
++}
++.deathover-go:focus-visible { outline: 3px solid var(--accent, #F5C518); outline-offset: 3px; }
++
++@keyframes deathover-in { from { opacity: 0; } to { opacity: 1; } }
++@media (prefers-reduced-motion: reduce) {
++  .deathover, .classfx-card { animation: none; }
++}
