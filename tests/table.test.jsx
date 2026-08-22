@@ -49,7 +49,16 @@ describe("one intent at a time", () => {
 
   /* The whole point. Four taps on Search while the table is blocked
      used to queue four searches on the host and run them all at once
-     the moment somebody else finished rolling. */
+     the moment somebody else finished rolling.
+
+     Counted by *type* rather than by call, because a swallowed tap
+     now also puts a `tap` report on the wire — see TELLING THE HOST
+     in useIntentGate. That report is the floor ledger's only
+     evidence that somebody tried and was outrun, and it must not be
+     mistaken for the thing this test exists to prevent. Asserting on
+     intents specifically is the stronger claim anyway: it fails both
+     if a second search escapes and if the report is ever built as
+     one. */
   it("swallows the rest until the world moves", () => {
     const send = vi.fn(() => true);
     const { result } = renderHook(() => useIntentGate(send, 1));
@@ -58,8 +67,36 @@ describe("one intent at a time", () => {
       result.current.send({ t: "intent", action: "doSearch" });
       result.current.send({ t: "intent", action: "doSearch" });
     });
-    expect(send).toHaveBeenCalledTimes(1);
+    const intents = send.mock.calls.filter(([m]) => m.t === "intent");
+    expect(intents).toHaveLength(1);
     expect(result.current.ignored).toBe(2);
+  });
+
+  /* The host has to hear about it, or a locked-out player is
+     invisible to everything downstream. Throttled: six taps on a
+     dead-looking button is still one frustration. */
+  it("tells the host a tap was eaten, once", () => {
+    const send = vi.fn(() => true);
+    const { result } = renderHook(() => useIntentGate(send, 1));
+    act(() => {
+      result.current.send({ t: "intent", action: "doSearch" });
+      result.current.send({ t: "intent", action: "doSearch" });
+      result.current.send({ t: "intent", action: "doSearch" });
+    });
+    const taps = send.mock.calls.filter(([m]) => m.t === "tap");
+    expect(taps).toHaveLength(1);
+    expect(taps[0][0].action).toBe("doSearch");
+    // It claims no character. The relay attaches that, so a phone
+    // cannot file a report on anybody else's behalf.
+    expect(taps[0][0].asPc).toBeUndefined();
+  });
+
+  /* A tap that goes out is not a tap that was eaten. */
+  it("says nothing to the host when the intent actually leaves", () => {
+    const send = vi.fn(() => true);
+    const { result } = renderHook(() => useIntentGate(send, 1));
+    act(() => { result.current.send({ t: "intent", action: "doSearch" }); });
+    expect(send.mock.calls.filter(([m]) => m.t === "tap")).toHaveLength(0);
   });
 
   it("re-opens when a new snapshot arrives", () => {
