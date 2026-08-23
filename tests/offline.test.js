@@ -26,6 +26,13 @@
      src/App.jsx       GET /net/info — the host tab reading the
                        join URL for the QR code.
      src/net/HostBar.jsx  the same, refreshed for the host bar.
+     src/ui/JoinCard.jsx  the same again, read when somebody puts the
+                       full-screen join card up. Fetched at the card
+                       rather than threaded down from App because it
+                       is wanted at an unpredictable moment during
+                       play — a late arrival, a phone that dropped —
+                       and a value cached at boot can be stale by
+                       then if the server has restarted.
      src/modules/ypsilon14/audio.js
                        prefetching a cassette that is bundled into
                        the build. Same origin, an asset already on
@@ -48,6 +55,7 @@ const ALLOWED = new Map([
   ["src/main.jsx", 1],
   ["src/App.jsx", 1],
   ["src/net/HostBar.jsx", 1],
+  ["src/ui/JoinCard.jsx", 1],
   ["src/modules/ypsilon14/audio.js", 1],
 ]);
 
