@@ -164,6 +164,57 @@ describe("the safety card", () => {
     relay.fromClient(a.clientId, { t: "safety", level: "veil" });
     expect(a.port.last("safetyack").level).toBe("veil");
   });
+
+  /* COMING DOWN IS AS ANONYMOUS AS GOING UP.
+
+     If the clear carried a clientId then the host would learn who
+     took the card down — and on a table where the card was about one
+     person, that is nearly as identifying as knowing who raised it. */
+  it("takes the card down from any phone, naming none of them", () => {
+    const a = seat("Rook", "pc1");
+    relay.fromClient(a.clientId, { t: "clearsafety" });
+    const clear = hostGot("clearsafety").pop();
+    expect(clear).toBeTruthy();
+    expect(Object.keys(clear)).toEqual(["t"]);
+  });
+
+  it("accepts a clear from a phone holding no character at all", () => {
+    /* A player whose character is dead is still at the table and
+       still allowed to say everyone is alright. */
+    const a = seat("Watcher", null);
+    relay.fromClient(a.clientId, { t: "clearsafety" });
+    expect(hostGot("clearsafety")).toHaveLength(1);
+  });
+});
+
+/* ---------------- the table deciding things ---------------- */
+
+describe("votes, questions and disputes", () => {
+  it("stamps a vote, unlike the card", () => {
+    /* A ballot with anonymous papers cannot tell whether everybody
+       has answered, and that is exactly what makes silence a no. */
+    const a = seat("Rook", "pc1");
+    relay.fromClient(a.clientId, { t: "vote", choice: "yes" });
+    expect(hostGot("vote").pop()).toMatchObject({ clientId: a.clientId, choice: "yes" });
+  });
+
+  it("carries the character on a question about the room", () => {
+    const a = seat("Rook", "pc1");
+    relay.fromClient(a.clientId, { t: "look", about: "ways out?" });
+    expect(hostGot("look").pop()).toMatchObject({ asPc: "pc1", about: "ways out?" });
+  });
+
+  it("refuses a question from a phone holding nobody", () => {
+    const a = seat("Watcher", null);
+    relay.fromClient(a.clientId, { t: "look", about: "what do I see" });
+    expect(hostGot("look")).toHaveLength(0);
+  });
+
+  it("takes ownership from its own record when a move is disputed", () => {
+    const a = seat("Rook", "pc1");
+    relay.fromClient(a.clientId, { t: "dispute", asPc: "pc2", moveId: 3 });
+    expect(hostGot("dispute").pop().asPc).toBe("pc1");
+  });
 });
 
 /* ---------------- peer whispers ---------------- */
