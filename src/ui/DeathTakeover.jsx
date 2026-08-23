@@ -34,7 +34,7 @@ import React, { useEffect } from "react";
 const PATTERN_DIED = [140, 90, 420];
 const PATTERN_LIVED = [60, 50, 60];
 
-export default function DeathTakeover({ event, onDismiss, muted = false }) {
+export default function DeathTakeover({ event, onDismiss, onNewCharacter = null, arrival = null, muted = false }) {
   useEffect(() => {
     if (!event || muted || !navigator.vibrate) return;
     navigator.vibrate(event.survived ? PATTERN_LIVED : PATTERN_DIED);
@@ -75,9 +75,55 @@ export default function DeathTakeover({ event, onDismiss, muted = false }) {
             face-down on the table for the last minute. */}
         <p className="deathover-who">{name}</p>
 
-        <button type="button" className="deathover-go" onClick={onDismiss} autoFocus>
-          {survived ? "Understood" : "Understood"}
-        </button>
+        {/* ============================================================
+            AND THEN WHAT?
+
+            This card used to end here, with one button that closed it.
+            It told a player beautifully that they were dead and then
+            handed them a phone with nothing on it — and `Contractors`,
+            the entire subsystem for bringing a new body to the table,
+            mounts on the Warden's own screen where a player cannot
+            reach it. So dying at nine o'clock meant watching until the
+            table stopped.
+
+            With a Warden that was at least recoverable: they reach
+            over and hand you somebody. With the chair empty there is
+            nobody to reach over, so the mode that most needs this had
+            no route to it at all.
+
+            This is Mothership. Characters die. Treating that as the
+            end of a player's evening — rather than as an interruption
+            to it — was the single worst experience the engine could
+            give a person, and it was the one thing on the roadmap that
+            was purely an omission rather than a design problem.
+
+            The route itself is almost nothing new: a phone that
+            submits a character mid-session is already accepted,
+            already added to the crew where the crew is, and already
+            sent `assigned`. All that was missing was a door.
+            ============================================================ */}
+        {!survived && onNewCharacter && (
+          <>
+            {/* Module-authored, and absent unless the author wrote it.
+                Where the next person comes from is a fact about the
+                fiction, and the engine does not invent facts about the
+                fiction — see INV-6. A module with nothing to say here
+                gets a plain button and the table explains it
+                themselves, which is what they do now anyway. */}
+            {arrival && <p className="deathover-arrival">{arrival}</p>}
+            <button type="button" className="deathover-go" onClick={onNewCharacter} autoFocus>
+              Take a new body
+            </button>
+            <button type="button" className="deathover-stay" onClick={onDismiss}>
+              Sit this one out
+            </button>
+          </>
+        )}
+        {(survived || !onNewCharacter) && (
+          <button type="button" className="deathover-go" onClick={onDismiss} autoFocus>
+            Understood
+          </button>
+        )}
       </div>
     </div>
   );
