@@ -13,6 +13,7 @@ import { Artefact } from "../ui/Artefact.jsx";
 import FeedLog from "../ui/FeedLog.jsx";
 import RecapCard from "../ui/RecapCard.jsx";
 import { tempoOf, sceneHolder } from "../engine/tempo.js";
+import TableFar from "./TableFar.jsx";
 import "../ui/tempo.css";
 
 /** How long the table screen sits untouched before it stops being a
@@ -21,7 +22,7 @@ import "../ui/tempo.css";
     the game is full of. */
 const IDLE_MS = 45000;
 
-export default function TableView({ g, peers, spotlight, safetyCall, vote }) {
+export default function TableView({ g, peers, spotlight, safetyCall, vote, distance = "desk" }) {
   const { mod, w, crew, feed, combat } = g;
   const room = mod.rooms[w.room];
   const t = tempoOf(w);
@@ -66,6 +67,19 @@ export default function TableView({ g, peers, spotlight, safetyCall, vote }) {
         </div>
         {w.recap && <RecapCard recap={w.recap} flat={false} />}
       </div>
+    );
+  }
+
+  /* THE FAR LAYOUT.
+     Below the cinema branch on purpose: a screen that has gone
+     quiet is already the right size for a sofa and always was, so
+     both distances share it and only the ACTIVE state forks. */
+  if (distance === "couch") {
+    return (
+      <TableFar
+        g={g} peers={peers} spotlight={spotlight}
+        safetyCall={safetyCall} vote={vote}
+      />
     );
   }
 
