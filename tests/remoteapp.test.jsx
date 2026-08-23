@@ -79,6 +79,33 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
+/* ============================================================
+   WHY THIS IS NOT `flush()`
+
+   `flush` awaits exactly two microtask ticks. That is fine for
+   settling React state, and it was being used to wait for WEBRTC
+   OFFER CREATION — which is genuinely asynchronous, involves ICE
+   gathering, and takes a variable number of ticks that is
+   occasionally more than two.
+
+   So the test was a fixed-tick wait racing a real async operation,
+   and it lost roughly one run in six. It has been recorded as
+   "flaky" in four consecutive release notes, which is the wrong
+   response to a test that was correct about something being slow.
+
+   Poll instead. A wait with a deadline cannot race: it either sees
+   the thing or it fails with the same message, and a genuine
+   regression still fails in under a second. ============================================================ */
+async function until(fn, tries = 60) {
+  for (let i = 0; i < tries; i++) {
+    const got = fn();
+    if (got) return got;
+    // eslint-disable-next-line no-await-in-loop
+    await act(async () => { await new Promise((r) => { setTimeout(r, 5); }); });
+  }
+  return fn();
+}
+
 async function bootHostToLobby() {
   window.history.replaceState({}, "", "/?mode=host");
   vi.resetModules();
@@ -101,13 +128,15 @@ describe("remote play from the screens", () => {
        there is no relay server, so there is nothing to authenticate
        to, and the useHost auth gate must know that. */
     await act(async () => { fireEvent.click(screen.getByText("Invite a player")); });
-    await flush();
 
     /* By content, not by attribute: React sets readOnly as a property
        and jsdom's attribute selector has been seen to miss it. The code
-       prefix is the thing this test actually cares about anyway. */
+       prefix is the thing this test actually cares about anyway.
+
+       Polled, not flushed — building the offer is real async work.
+       See the note on `until`. */
     const boxes = () => [...document.querySelectorAll("textarea")];
-    const offerBox = boxes().find((t) => t.value.startsWith("RPG1.o"));
+    const offerBox = await until(() => boxes().find((t) => t.value.startsWith("RPG1.o")));
     expect(offerBox).toBeTruthy();
 
     /* The far end, driven directly: decode the code off the screen,
@@ -120,16 +149,20 @@ describe("remote play from the screens", () => {
     const answerBox = boxes().find((t) => !t.value);
     fireEvent.change(answerBox, { target: { value: answerCode } });
     await act(async () => { fireEvent.click(screen.getByText("Connect")); });
-    await flush();
 
+    /* Same race: the connection completing is not a fixed number of
+       ticks away from the click that started it. */
+    await until(() => screen.queryAllByText(/at the table/i).length > 0);
     expect(screen.getAllByText(/at the table/i).length).toBeGreaterThan(0);
 
     /* The phone speaks; the Warden's lobby answers with its name. */
     const got = [];
     phone.link.onMessage = (m) => got.push(m);
     await act(async () => { phone.link.send({ t: "hello", name: "Rook" }); });
-    await flush();
 
+    /* And again: a message crossing the link and coming back is not
+       two ticks, it is however long the link takes. */
+    await until(() => got.find((m) => m.t === "welcome"));
     expect(got.find((m) => m.t === "welcome")).toBeTruthy();
     const phonesPanel = screen.getByText(/Phones · /).closest("section");
     expect(within(phonesPanel).getByText("Rook")).toBeTruthy();
