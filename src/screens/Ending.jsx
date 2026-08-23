@@ -5,7 +5,43 @@ import { toMarkdown, filename, rollStats } from "../engine/transcript.js";
 import { downloadText } from "../engine/storage.js";
 import { pad } from "../engine/dice.js";
 
-export default function Ending({ mod, w, crew, feed, onAgain, onLibrary }) {
+export default function Ending({ mod, w, crew, feed, onAgain, onLibrary, phone = false }) {
+  /* COPYING, ON A PHONE.
+
+     `downloadText` is right on a laptop and close to useless on a
+     handset, where a downloaded .md lands somewhere the person will
+     never find it again. Copying puts the evening straight into the
+     message they were about to send anybody.
+
+     It matters more than it looks because of what a player's copy
+     actually is. The snapshot every phone holds was redacted host-
+     side, so a player's feed is *their* evening — the things they
+     were told, without the things they were not. Six people at this
+     table can each take away a different and individually honest
+     account of the same session, and none of them contains anybody
+     else's secrets. */
+  const [copied, setCopied] = React.useState(false);
+  const copy = React.useCallback(() => {
+    const text = toMarkdown({ mod, world: w, crew, feed });
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => {});
+      return;
+    }
+    /* Older webviews, and any browser that has not been given
+       clipboard permission. Silent failure here would be worse than
+       the deprecated call. */
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.setAttribute("readonly", "");
+      ta.style.position = "absolute"; ta.style.left = "-9999px";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      done();
+    } catch { /* nothing to be done, and nothing to say about it */ }
+  }, [mod, w, crew, feed]);
+
   const end = mod.endings[w.ended] || { title: "IT IS OVER", text: "" };
   const stats = rollStats(w);
   const debrief = mod.debrief ? mod.debrief(w, crew[0], mod) : [];
@@ -67,15 +103,25 @@ export default function Ending({ mod, w, crew, feed, onAgain, onLibrary }) {
         )}
 
         <div className="btn-grid">
-          <Btn kind="accent" onClick={() => downloadText(filename(mod, w), toMarkdown({ mod, world: w, crew, feed }), "text/markdown")}>
-            Export the session transcript
+          <Btn kind="accent" onClick={copy}>
+            {copied ? "Copied" : "Copy what happened tonight"}
           </Btn>
-          <Btn kind="ghost" onClick={onAgain}>Run it again</Btn>
-          <Btn kind="ghost" onClick={onLibrary}>Back to the shelf</Btn>
+          {/* A file is the right answer on the machine that has a
+              file system and somewhere to put it. */}
+          {!phone && (
+            <Btn kind="ghost" onClick={() => downloadText(filename(mod, w), toMarkdown({ mod, world: w, crew, feed }), "text/markdown")}>
+              Export the session transcript
+            </Btn>
+          )}
+          {onAgain && <Btn kind="ghost" onClick={onAgain}>Run it again</Btn>}
+          <Btn kind="ghost" onClick={onLibrary}>{phone ? "Done" : "Back to the shelf"}</Btn>
         </div>
 
         <div className="note-box">
-          The save has been kept, not deleted. You can come back to this debrief from the library.
+          {phone
+            ? "This is your own record of the evening — the things this character was told, "
+              + "without the things they were not. Everyone else's copy is different."
+            : "The save has been kept, not deleted. You can come back to this debrief from the library."}
         </div>
       </div>
     </div>
