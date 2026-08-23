@@ -143,7 +143,12 @@ describe("the director, given hands", () => {
     const g = fakeGame();
     g.pending = { kind: "roll", req: { pcId: "riley" } };   // rung 2: wait
     const { result } = renderHook(() => useDirector({ g, mod: MOD, enabled: true }));
-    act(() => { vi.advanceTimersByTime(DIRECTOR_TICK_MS * 30); });
+    /* Under PENDING_PATIENCE_MS. Past it the ladder is *supposed* to
+       say the player's name once and then stand down — see
+       rungPending and tests/director3.test.js. What must never
+       happen, at any point, is the word "wait" appearing in the
+       strip as though it were something to approve. */
+    act(() => { vi.advanceTimersByTime(DIRECTOR_TICK_MS * 5); });
     expect(result.current.move).toBe(null);
   });
 
