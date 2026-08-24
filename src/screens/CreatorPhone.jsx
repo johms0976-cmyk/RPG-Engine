@@ -25,6 +25,7 @@ import {
   CLASSES, SKILL_TREE, SKILL_COST, SKILL_BONUS, skillTier, canTakeSkill,
   rollStats, randomFlavour, makeCharacter, STAT_LABEL, STAT_KEYS, SAVE_KEYS,
 } from "../engine/rules.js";
+import { randomDraft } from "../engine/randomDraft.js";
 import { exportCharacter, newHistory } from "../engine/portable.js";
 import { stash } from "../engine/locker.js";
 import "../ui/wizard.css";
@@ -372,6 +373,27 @@ export default function CreatorPhone({ mod, onOffer, onBack, playerName }) {
       <div className="wiz-progress" aria-hidden="true">
         <i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
       </div>
+
+      {/* B.1 — THE WAY OUT OF THE WIZARD.
+
+          Six people building characters at once is fifteen to
+          twenty-five minutes in which nobody is playing anything,
+          and on a weeknight that is where two of them are lost —
+          before the game has said a word.
+
+          Offered only on the first step. Past that the player has
+          started making decisions, and a button that silently
+          throws them away is a trap rather than a shortcut. */}
+      {step === 0 && (
+        <div className="wiz-quick">
+          <Btn kind="ghost" onClick={() => setDraft(randomDraft(mod))}>
+            Roll me one
+          </Btn>
+          <p className="wiz-quick-note">
+            A whole character, now. You can change any of it later.
+          </p>
+        </div>
+      )}
 
       <div className="wiz-body">{body}</div>
 
