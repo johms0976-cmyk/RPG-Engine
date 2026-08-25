@@ -136,7 +136,21 @@ describe("remote play from the screens", () => {
        Polled, not flushed — building the offer is real async work.
        See the note on `until`. */
     const boxes = () => [...document.querySelectorAll("textarea")];
-    const offerBox = await until(() => boxes().find((t) => t.value.startsWith("RPG1.o")));
+
+    /* The offer is a QR code now, and the text form is folded away
+       behind a disclosure — the code is 110 characters and a phone is
+       expected to scan it off a shared screen rather than a person
+       carry it. This test is not a camera, so it opens the drawer.
+
+       The prefix is matched loosely: the fake peer connection above
+       emits an SDP with no media section, which rtcCompact declines
+       to compact, so what lands here is the RPG1 long form. That is
+       the fallback working, and the test should not care which of the
+       two it got. */
+    const reveal = await until(() => screen.queryByText("Show code"));
+    await act(async () => { fireEvent.click(reveal); });
+
+    const offerBox = await until(() => boxes().find((t) => /^RPG[12]\./.test(t.value)));
     expect(offerBox).toBeTruthy();
 
     /* The far end, driven directly: decode the code off the screen,
