@@ -1,0 +1,40 @@
+{
+  "name": "mothership-engine",
+  "private": true,
+  "version": "2.16.0",
+  "type": "module",
+  "description": "An offline engine for playing Mothership RPG modules. No network, no API key, no tokens.",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run test && npm run build",
+    "host": "vite build && node server/host.mjs",
+    "serve": "node server/host.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "doctor:fix": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/firewall.ps1",
+    "tunnel": "vite build && node scripts/tunnel.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource/oswald": "^5.3.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^30.0.1",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}
