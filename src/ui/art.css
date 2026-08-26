@@ -1,0 +1,862 @@
+/* ============================================================
+   ART DIRECTION
+
+   Four things, in order of how much they matter:
+
+   1. TYPE. Self-hosted, so the game looks right offline and on
+      the first paint instead of flashing Impact at you. A
+      condensed grotesque for display (Oswald) and a mono for
+      body and data (JetBrains Mono). Both are OFL, vendored via
+      @fontsource, and subset to latin.
+
+   2. TEXTURE. Mothership's look is cheap print: toner that did
+      not take, halftone, registration that is one pass out. A
+      fixed-position grain overlay and a halftone screen do that
+      without touching layout or hurting text contrast.
+
+   3. TREATMENTS. Per-module skins, set with data-treatment on
+      the app shell:
+        print    the default. Paper, grain, slight ink spread.
+        crt      scanlines, phosphor bloom, barrel vignette.
+        thermal  receipt printer: warm paper, banded ink,
+                 slightly failing heat element.
+
+   4. MOTION. All of it is behind prefers-reduced-motion.
+   ============================================================ */
+
+@import "@fontsource/oswald/400.css";
+@import "@fontsource/oswald/500.css";
+@import "@fontsource/oswald/700.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+
+:root {
+  --display: "Oswald", "Arial Narrow", Impact, sans-serif;
+  --mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  --grain-opacity: 0.055;
+  --halftone-opacity: 0.05;
+  --scan-opacity: 0;
+  --bloom: 0;
+  --paper: var(--void);
+  --ink-spread: 0;
+}
+
+/* ============================================================
+   TEXTURE OVERLAYS
+   Fixed, pointer-events:none, above the app and below modals.
+   ============================================================ */
+
+.app::before,
+.app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+/* grain */
+.app::before {
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* halftone screen */
+.app::after {
+  opacity: var(--halftone-opacity);
+  background-image: radial-gradient(circle at 50% 50%, var(--bone) 0.6px, transparent 0.9px);
+  background-size: 3px 3px;
+  mix-blend-mode: soft-light;
+}
+
+/* ============================================================
+   TREATMENT: PRINT (default)
+   ============================================================ */
+
+[data-treatment="print"] {
+  --grain-opacity: 0.06;
+  --halftone-opacity: 0.055;
+}
+
+/* Cheap registration: the display type gets a hair of misregister. */
+[data-treatment="print"] h1,
+[data-treatment="print"] .title-main {
+  text-shadow: 0.6px 0 0 var(--blood), -0.5px 0 0 rgba(80, 140, 200, 0.35);
+}
+
+/* ============================================================
+   TREATMENT: CRT
+   ============================================================ */
+
+[data-treatment="crt"] {
+  --grain-opacity: 0.04;
+  --halftone-opacity: 0;
+  --scan-opacity: 0.16;
+}
+
+[data-treatment="crt"] .app::after,
+.app[data-treatment="crt"]::after {
+  opacity: var(--scan-opacity);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.55) 0px,
+    rgba(0, 0, 0, 0.55) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: multiply;
+}
+
+[data-treatment="crt"] .feed p,
+[data-treatment="crt"] .panel header h2 {
+  text-shadow: 0 0 5px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+[data-treatment="crt"] .panel {
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.65);
+}
+
+/* Phosphor bloom + barrel vignette on the shell. */
+[data-treatment="crt"]::before {
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes crt-roll {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  8%   { opacity: 0.35; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+[data-treatment="crt"] .crt-rollbar {
+  position: fixed;
+  left: 0; right: 0;
+  height: 90px;
+  z-index: 41;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.05), transparent);
+  animation: crt-roll 7s linear infinite;
+}
+
+/* ============================================================
+   TREATMENT: THERMAL
+   Receipt printer. Warm paper, banded ink, a head that is dying.
+   ============================================================ */
+
+[data-treatment="thermal"] {
+  --paper: #E8E2D4;
+  --grain-opacity: 0.09;
+  --halftone-opacity: 0.03;
+}
+
+[data-treatment="thermal"] {
+  background: var(--paper);
+  color: #1A1714;
+}
+
+[data-treatment="thermal"] .panel {
+  background: var(--paper);
+  border-color: #2A2520;
+  color: #1A1714;
+}
+
+[data-treatment="thermal"] .feed p {
+  color: #241F1A;
+  /* horizontal banding, as if the print head is cooling unevenly */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.035) 0px,
+    rgba(0, 0, 0, 0.035) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+[data-treatment="thermal"] .feed p.k-horror,
+[data-treatment="thermal"] .feed p.k-panic {
+  color: #000;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* The thermal paper curls at the edges. */
+[data-treatment="thermal"] .panel::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 10px;
+  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.12));
+  pointer-events: none;
+}
+
+/* ============================================================
+   TITLE SEQUENCE
+   ============================================================ */
+
+.title-seq {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  padding: 32px;
+  overflow: hidden;
+}
+
+.title-seq .warn-strip {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 14px;
+  background: repeating-linear-gradient(
+    45deg, var(--accent) 0 14px, var(--ink) 14px 28px
+  );
+  opacity: 0;
+  animation: strip-in 0.5s 0.15s forwards;
+}
+@keyframes strip-in { to { opacity: 1; } }
+
+.title-seq .preflight {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  color: var(--graphite);
+  min-height: 5.4em;
+  text-align: left;
+  width: min(560px, 100%);
+  white-space: pre-wrap;
+}
+
+.title-seq .preflight .ok { color: var(--accent); }
+.title-seq .preflight .bad { color: var(--blood); }
+
+.title-main {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(38px, 11vw, 108px);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 0;
+  color: var(--bone);
+  opacity: 0;
+  transform: scale(1.06);
+  animation: title-slam 0.62s cubic-bezier(0.16, 1, 0.3, 1) 1.1s forwards;
+}
+@keyframes title-slam {
+  from { opacity: 0; transform: scale(1.09); filter: blur(7px); }
+  to   { opacity: 1; transform: scale(1);    filter: blur(0); }
+}
+
+.title-rule {
+  width: 0;
+  height: 3px;
+  background: var(--accent);
+  animation: rule-draw 0.7s ease-out 1.7s forwards;
+}
+@keyframes rule-draw { to { width: min(560px, 82vw); } }
+
+.title-sub {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--graphite);
+  opacity: 0;
+  animation: fade-up 0.55s ease-out 2s forwards;
+}
+
+.title-blurb {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  max-width: 58ch;
+  text-align: center;
+  color: var(--bone2);
+  opacity: 0;
+  animation: fade-up 0.6s ease-out 2.3s forwards;
+}
+
+.title-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  opacity: 0;
+  animation: fade-up 0.5s ease-out 2.6s forwards;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.title-seq .skip {
+  position: absolute;
+  bottom: 18px;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  color: var(--graphite);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* ============================================================
+   DICE THEATRE
+   ============================================================ */
+
+.dice-reveal {
+  border: var(--border) solid var(--ink);
+  background: var(--void2);
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.dice-reveal.compact { padding: 8px 10px; }
+
+.dice-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+.dice-who { color: var(--bone); font-weight: 600; }
+.dice-label { flex: 1; }
+.dice-target { color: var(--accent); font-weight: 700; }
+
+.dice-pair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.die {
+  width: 56px; height: 56px;
+  border: 2px solid var(--ink);
+  background: var(--bone);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.die-face {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.875rem;
+  line-height: 1;
+}
+.die-kind {
+  position: absolute;
+  bottom: 3px;
+  font-family: var(--mono);
+  font-size: 0.4375rem;
+  letter-spacing: 0.14em;
+  opacity: 0.55;
+}
+
+.die.rolling {
+  animation: die-rattle 0.11s infinite;
+  background: var(--bone2);
+}
+@keyframes die-rattle {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(-1.5px, 1px) rotate(-2.5deg); }
+  50%  { transform: translate(1.5px, -1px) rotate(2deg); }
+  75%  { transform: translate(-1px, -1.5px) rotate(-1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.die.landed {
+  animation: die-land 0.22s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes die-land {
+  0%   { transform: scale(1.28) translateY(-7px); }
+  60%  { transform: scale(0.95) translateY(1px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.dice-total {
+  margin-left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dice-total-v {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 2.125rem;
+  line-height: 1;
+  color: var(--bone);
+}
+.dice-doubles {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+
+.dice-tens-call {
+  font-family: var(--mono);
+  font-size: 0.5938rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--graphite);
+  animation: fade-up 0.2s ease-out;
+}
+.dice-tens-call.already-over { color: var(--blood); }
+.dice-tens-call.already-under { color: var(--accent); }
+
+.dice-hold {
+  font-family: var(--display);
+  font-size: 1.625rem;
+  letter-spacing: 0.4em;
+  color: var(--blood);
+  text-align: center;
+  animation: hold-pulse 0.9s ease-in-out;
+}
+@keyframes hold-pulse {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+
+.dice-verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.dice-verdict .stamp {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  letter-spacing: 0.11em;
+  padding: 2px 8px;
+  border: 2px solid currentColor;
+  transform: rotate(-1.4deg);
+  animation: stamp-in 0.24s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+@keyframes stamp-in {
+  from { transform: rotate(-9deg) scale(1.5); opacity: 0; }
+  to   { transform: rotate(-1.4deg) scale(1); opacity: 1; }
+}
+.dice-verdict .by {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  color: var(--graphite);
+}
+
+.dice-reveal.good .stamp { color: var(--accent); }
+.dice-reveal.bad .stamp { color: var(--graphite); }
+.dice-reveal.crit-good .stamp { color: var(--ink); background: var(--accent); border-color: var(--accent); }
+.dice-reveal.crit-bad .stamp { color: var(--bone); background: var(--blood); border-color: var(--blood); }
+.dice-reveal.crit-bad { border-color: var(--blood); }
+
+/* ============================================================
+   MAP v2
+   ============================================================ */
+
+.map2 { display: flex; flex-direction: column; gap: 6px; }
+
+.map2-floors {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.map2-floor {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--void2);
+  border: 2px solid var(--ink);
+  color: var(--bone2);
+  font-family: var(--mono);
+  font-size: 0.5938rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  min-height: 32px;
+}
+.map2-floor .z {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--graphite);
+}
+.map2-floor.on { background: var(--accent); color: var(--ink); border-color: var(--accent); }
+.map2-floor.on .z { color: var(--ink); }
+.map2-floor .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blood);
+}
+
+.map2-svg {
+  width: 100%;
+  display: block;
+  background: var(--void2);
+  border: var(--border) solid var(--ink);
+  touch-action: none;
+  cursor: grab;
+}
+.map2-svg:active { cursor: grabbing; }
+
+.map2-room.go { cursor: pointer; }
+.map2-room.go:hover rect,
+.map2-room.go:hover polygon { stroke: var(--accent); stroke-width: 3; }
+.map2-room.focus rect,
+.map2-room.focus polygon {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+  stroke-dasharray: 7 3;
+}
+
+.map2-num {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  fill: var(--bone);
+}
+.map2-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.7188rem;
+  letter-spacing: 0.05em;
+  fill: var(--ink);
+}
+.map2-tags {
+  font-family: var(--mono);
+  font-size: 0.4375rem;
+  letter-spacing: 0.08em;
+  fill: var(--graphite);
+}
+.map2-unknown {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.375rem;
+  fill: var(--graphite);
+  opacity: 0.6;
+}
+.mark-glyph {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  fill: var(--bone);
+}
+.mark.threat.hot circle { animation: threat-pulse 1.5s ease-in-out infinite; }
+@keyframes threat-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+.shaft { cursor: pointer; }
+.shaft-glyph { font-size: 0.625rem; fill: var(--bone); }
+
+.map2-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.map2-zoom { display: flex; align-items: center; gap: 5px; }
+.map2-zoom .z-level {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  color: var(--graphite);
+  min-width: 42px;
+  text-align: center;
+}
+.btn.tiny {
+  min-height: 28px;
+  padding: 2px 9px;
+  font-size: 0.625rem;
+}
+.map2-legend {
+  display: flex;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 0.5312rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--graphite);
+  flex-wrap: wrap;
+}
+.map2-legend span { display: flex; align-items: center; gap: 4px; }
+.map2-legend i.lg {
+  width: 9px; height: 9px;
+  border: 1.5px solid var(--ink);
+  display: inline-block;
+}
+.lg.here { background: var(--accent); }
+.lg.known { background: var(--bone); }
+.lg.unknown { background: none; border-style: dashed; }
+.lg.threat { background: var(--blood); border-radius: 50%; }
+
+/* ============================================================
+   SHIP SHEET
+   ============================================================ */
+
+.ship-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 6px;
+}
+.hull-track {
+  position: relative;
+  height: 26px;
+  border: 2px solid var(--ink);
+  background: var(--void);
+  overflow: hidden;
+}
+.hull-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hull-fill.warn { background: #C8862A; }
+.hull-fill.bad { background: var(--blood); }
+.hull-mark {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--ink);
+}
+.hull-mark span {
+  position: absolute;
+  top: 1px; left: 3px;
+  font-family: var(--mono);
+  font-size: 0.4375rem;
+  color: var(--bone2);
+  letter-spacing: 0.08em;
+}
+.hull-mark.crossed { background: var(--blood); width: 3px; }
+
+.module-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--graphite) 40%, transparent);
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+}
+.module-row .pips { display: flex; gap: 2px; flex-wrap: wrap; }
+.module-row .pip {
+  width: 9px; height: 14px;
+  border: 1.5px solid var(--ink);
+  background: var(--bone);
+}
+.module-row .pip.dead { background: var(--blood); border-color: var(--blood); }
+
+.condition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.condition-list li {
+  font-family: var(--mono);
+  font-size: 0.6562rem;
+  color: var(--blood);
+  letter-spacing: 0.04em;
+  list-style: none;
+  padding-left: 12px;
+  position: relative;
+}
+.condition-list li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+}
+
+/* ============================================================
+   CONTRACTORS / SHORE LEAVE
+   ============================================================ */
+
+.merc-card {
+  border: 2px solid var(--ink);
+  background: var(--void2);
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.merc-card.disloyal { border-color: var(--blood); }
+.merc-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.merc-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: 0.04em;
+}
+.merc-role {
+  font-family: var(--mono);
+  font-size: 0.5625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.merc-stats {
+  display: flex;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 0.6562rem;
+  color: var(--bone2);
+  flex-wrap: wrap;
+}
+.merc-stats b { color: var(--bone); }
+.hits { display: flex; gap: 3px; }
+.hits i {
+  width: 8px; height: 8px;
+  background: var(--bone);
+  border: 1.5px solid var(--ink);
+  display: inline-block;
+}
+.hits i.gone { background: transparent; }
+
+.plan-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.6562rem;
+  padding: 3px 0;
+}
+.house-tag {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  border: 1px solid var(--graphite);
+  color: var(--graphite);
+  padding: 1px 4px;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   REDUCED MOTION — remove theatre, keep information
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .die.rolling,
+  .die.landed,
+  .dice-verdict .stamp,
+  .dice-hold,
+  .title-main,
+  .title-rule,
+  .title-sub,
+  .title-blurb,
+  .title-actions,
+  .warn-strip,
+  .mark.threat.hot circle,
+  .crt-rollbar {
+    animation: none !important;
+  }
+  .title-main,
+  .title-sub,
+  .title-blurb,
+  .title-actions,
+  .warn-strip { opacity: 1; transform: none; }
+  .title-rule { width: min(560px, 82vw); }
+  .hull-fill { transition: none; }
+}
+
+/* ============================================================
+   THE THREAT PULSE — Warden's screen only.
+
+   The map already knew where the thing was; the Warden had to
+   read it off a marker the size of a thumbnail while four people
+   talked at them. A slow ring around the room it is in is
+   readable from across a desk without being readable from the
+   sofa, which is exactly the asymmetry a Warden screen is for.
+
+   Slow on purpose. A fast pulse reads as a UI error; a four
+   second one reads as breathing.
+   ============================================================ */
+
+.map2-threat-pulse { opacity: 0.85; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .map2-threat-pulse { animation: map2-threat 4s ease-in-out infinite; }
+}
+
+@keyframes map2-threat {
+  0%, 100% { opacity: 0.25; stroke-width: 2; }
+  50% { opacity: 0.95; stroke-width: 4; }
+}
+
+/* ---- the module's own paper ----
+   theme.grain, independent of the countdown's --pressure. One is
+   what this place is like; the other is how long you have left. */
+
+[data-grain="on"] { position: relative; }
+
+[data-grain="on"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  opacity: calc(var(--grain, 0) * 0.4);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+
+/* ============================================================
+   MAP — crew pips and the movement pulse.
+
+   The pip row answers "where is everybody", which the single
+   corner marker never could: one square looks identical whether
+   it is one person in a room or the whole crew, and that is
+   precisely the fact you want before splitting the party.
+   ============================================================ */
+
+.map2-pip.is-out circle { stroke-dasharray: 2 2; opacity: 0.55; }
+.map2-pip.is-me circle { filter: drop-shadow(0 0 4px var(--accent)); }
+
+.map2-trail path { animation: map-trail-fade 1100ms ease-out forwards; }
+@keyframes map-trail-fade {
+  0%   { opacity: 0.75; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map2-trail { display: none; }
+}
+
+/* ---- handouts that are pictures ---- */
+
+.artefact-img {
+  display: block;
+  width: 100%;
+  max-height: 46vh;
+  margin: 8px 0;
+  object-fit: contain;
+  /* Sits in the same paper as the text, rather than looking like a
+     web image that has landed on top of a prop. */
+  filter: contrast(1.06) saturate(0.85);
+  border: 1px solid rgb(0 0 0 / 0.35);
+  background: rgb(0 0 0 / 0.15);
+}
+
+.artefact.is-terminal .artefact-img { filter: contrast(1.2) saturate(0.2) sepia(0.5) hue-rotate(60deg); }
+.artefact.has-img .artefact-text { margin-top: 4px; }

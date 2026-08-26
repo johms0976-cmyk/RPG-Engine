@@ -1,0 +1,364 @@
+/* ============================================================
+   PLAYER.CSS — the phone-facing additions.
+
+   Loaded after phone.css so it is allowed to correct anything
+   above it, and scoped tightly enough that nothing here can
+   reach the Warden's desk layout by accident.
+
+   Two constraints run through all of it:
+
+     · Every interactive thing is at least 34px tall. A player
+       taps these in the dark, one-handed, while somebody is
+       talking at them.
+
+     · Nothing carries meaning by colour alone. The condition
+       tones, the roll bands and the initiative states each have
+       a shape or a word as well, because a phone at 52%
+       brightness under the dim filter is close to greyscale.
+   ============================================================ */
+
+/* ---------------- Hint: the tooltip that works on a finger ---------------- */
+
+.hint { display: inline; }
+.hint-block { display: block; }
+
+.hint-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 5px;
+  padding: 0;
+  vertical-align: baseline;
+  border: 1px solid var(--graphite, #6b6b70);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--graphite, #6b6b70);
+  font-family: var(--mono, monospace);
+  font-size: 0.625rem;
+  line-height: 1;
+  cursor: pointer;
+  /* The visual dot is 18px; the hit target is not. */
+  position: relative;
+}
+.hint-btn::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.hint-btn.is-open,
+.hint-btn:hover {
+  border-color: var(--bone, #e8e4dc);
+  color: var(--bone, #e8e4dc);
+}
+
+.hint-body {
+  display: block;
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--graphite, #6b6b70);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--bone, #e8e4dc);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+/* ---------------- Disclosure: a row that opens ---------------- */
+
+.disc {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-left-width: 3px;
+  border-left-color: var(--graphite, #6b6b70);
+  margin-bottom: 5px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.disc.is-bad { border-left-color: var(--blood, #8c2b28); }
+.disc.is-good { border-left-color: var(--acid, #b6d94c); }
+
+.disc-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.disc-sum {
+  flex: 0 0 auto;
+  font-family: var(--mono, monospace);
+  font-size: 0.7188rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.disc-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  color: var(--graphite, #6b6b70);
+}
+.disc-mark {
+  flex: 0 0 auto;
+  font-family: var(--mono, monospace);
+  font-size: 0.875rem;
+  color: var(--graphite, #6b6b70);
+}
+.disc-body {
+  padding: 0 10px 10px;
+  font-size: 0.7812rem;
+  line-height: 1.45;
+}
+
+/* ---------------- RollPrompt ---------------- */
+
+.rp-reason {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.rp-target {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+.rp-target-lead {
+  font-family: var(--mono, monospace);
+  font-size: 0.6562rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.rp-target-n {
+  font-family: var(--mono, monospace);
+  font-size: 2.875rem;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+}
+.rp-target-mode {
+  font-family: var(--mono, monospace);
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  padding: 3px 6px;
+  border: 1px solid currentColor;
+}
+.rp-target-mode.is-advantage { color: var(--acid, #b6d94c); }
+.rp-target-mode.is-disadvantage { color: var(--blood, #8c2b28); }
+.rp-target.is-advantage { border-color: rgba(182, 217, 76, 0.4); }
+.rp-target.is-disadvantage { border-color: rgba(140, 43, 40, 0.5); }
+
+.rp-mods { list-style: none; margin: 0; padding: 0; }
+.rp-mod {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 2px;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.07);
+  font-size: 0.75rem;
+}
+.rp-mod:last-child { border-bottom: 0; }
+.rp-mod-v {
+  flex: 0 0 44px;
+  font-family: var(--mono, monospace);
+  font-size: 0.7812rem;
+  text-align: right;
+}
+.rp-mod-s { flex: 1 1 auto; }
+.rp-mod-k {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.rp-mod.is-base .rp-mod-v { opacity: 0.85; }
+.rp-mod.is-up .rp-mod-v { color: var(--acid, #b6d94c); }
+.rp-mod.is-down .rp-mod-v,
+.rp-mod.is-dis .rp-mod-v { color: var(--blood, #8c2b28); }
+.rp-mod.is-adv .rp-mod-v { color: var(--acid, #b6d94c); }
+
+.rp-odds { display: flex; gap: 8px; }
+.rp-odd {
+  flex: 1 1 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+.rp-odd-n {
+  display: block;
+  font-family: var(--mono, monospace);
+  font-size: 1.25rem;
+}
+.rp-odd-k {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.6562rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.rp-odd.is-good .rp-odd-n { color: var(--acid, #b6d94c); }
+.rp-odd.is-bad .rp-odd-n { color: var(--blood, #8c2b28); }
+.rp-odd.is-panic { border-color: rgba(140, 43, 40, 0.5); }
+
+.rp-compare {
+  margin: 0;
+  font-size: 0.7188rem;
+  line-height: 1.45;
+  color: var(--bone, #e8e4dc);
+  opacity: 0.85;
+}
+.rp-caveat {
+  margin: 0;
+  font-size: 0.6562rem;
+  line-height: 1.4;
+  color: var(--graphite, #6b6b70);
+}
+.rp-stress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: var(--mono, monospace);
+  font-size: 0.75rem;
+}
+.rp-stress strong { font-size: 1.25rem; }
+
+/* ---------------- Initiative ---------------- */
+
+.initiative {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.initiative-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--mono, monospace);
+  font-size: 0.6562rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.initiative-head strong { color: var(--acid, #b6d94c); }
+.initiative-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.initiative-slot {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 4px;
+  font-size: 0.75rem;
+  border-left: 3px solid transparent;
+}
+.initiative-n {
+  flex: 0 0 18px;
+  font-family: var(--mono, monospace);
+  font-size: 0.625rem;
+  color: var(--graphite, #6b6b70);
+}
+.initiative-who { flex: 1 1 auto; }
+.initiative-tag {
+  font-size: 0.5938rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.initiative-slot.is-enemy .initiative-who { color: var(--blood, #8c2b28); }
+.initiative-slot.is-me .initiative-who { font-weight: 700; }
+.initiative-slot.is-now { border-left-color: var(--acid, #b6d94c); background: rgba(255, 255, 255, 0.04); }
+.initiative-slot.is-done { opacity: 0.42; }
+.initiative-slot.is-gone { text-decoration: line-through; opacity: 0.42; }
+
+/* ---------------- Roll history ---------------- */
+
+.rollhist { list-style: none; margin: 0; padding: 0; }
+.rollhist-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 2px;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.07);
+  font-size: 0.75rem;
+  border-left: 3px solid transparent;
+  padding-left: 6px;
+}
+.rollhist-v { font-family: var(--mono, monospace); font-size: 0.875rem; }
+.rollhist-t { font-family: var(--mono, monospace); font-size: 0.6875rem; color: var(--graphite, #6b6b70); }
+.rollhist-l { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rollhist-o {
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--graphite, #6b6b70);
+}
+.rollhist-row.is-ok { border-left-color: rgba(182, 217, 76, 0.55); }
+.rollhist-row.is-crit { border-left-color: var(--acid, #b6d94c); }
+.rollhist-row.is-no { border-left-color: rgba(255, 255, 255, 0.14); }
+.rollhist-row.is-critfail { border-left-color: var(--blood, #8c2b28); }
+
+/* ---------------- Party kit ---------------- */
+
+.kit .disc-meta { text-transform: none; letter-spacing: 0; }
+
+/* ---------------- Desk ----------------
+
+   On a wide screen the roll prompt has room to breathe, and the
+   40px target number that reads correctly at arm's length on a
+   phone looks shouty on a monitor. */
+@media (min-width: 780px) {
+  .rp-target-n { font-size: 2.375rem; }
+  .rp-odds { max-width: 420px; }
+}
+
+/* ---------------- inventory rows ----------------
+
+   The item button and its explanation sit on one line; the button
+   keeps its own hit target and the "?" keeps a separate one, so a
+   player reaching for the description cannot fire the stimpak. */
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.item-row > .btn { flex: 1 1 auto; min-width: 0; }
+
+/* ---------------- conditions on the status strip ---------------- */
+.pstatus-cond.is-self {
+  border-color: rgba(140, 43, 40, 0.55);
+  color: var(--blood, #8c2b28);
+}
+/* The strip is dense and the hint dots must not push it taller. */
+.pstatus .hint-btn { width: 15px; height: 15px; font-size: 0.5625rem; margin-left: 4px; }
+.pstatus .hint-body {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 100%;
+  z-index: 40;
+  margin: 0;
+  background: var(--void, #0a0a0b);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-left-width: 2px;
+}
+.pstatus { position: relative; }
