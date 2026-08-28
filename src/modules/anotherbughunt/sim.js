@@ -264,6 +264,23 @@ export const simHooks = {
   useRadio(api) {
     const f = api.world().flags || {};
     if (f.signal_down) { api.say("good", "The channel is clean. Whoever you want, you can raise."); return; }
+
+    /* RESNICK WAS RIGHT ABOUT THE MECHANISM.
+
+       The Signal is a broadcast. A folded foil cap is, unglamorously,
+       the correct countermeasure for a broadcast, and it is useless
+       against the animal standing in front of you — which is exactly
+       what the freezer means when it says he was right about the
+       mechanism and wrong about the remedy. Wearing it does not make
+       you safe. It makes the radio safe, which on this planet is a
+       larger thing than it sounds. */
+    if (simHooks.wearingFoil(api)) {
+      api.say("system", "The set opens onto the same wall of structured noise, cycling, looking for something to land on.");
+      api.say("good", "Under several careful layers of ration foil, it does not find it. You can hear the noise. It cannot hear you.");
+      api.flag("foil_proven");
+      return;
+    }
+
     api.say("horror", "The set opens onto a wall of noise — structured noise, patterned, going somewhere on a cycle — and then the cycle finds you.");
     api.effects([{
       save: "sanity", why: "you listened to the Signal",
@@ -329,6 +346,22 @@ export const simHooks = {
         for (const id of MISSIONS[loser].dead) api.setNpc(id, { alive: false });
         api.flag(`lost_${loser}`);
         api.stress(1, "they went without you");
+
+        /* WHAT THE `grunt` THREAT WAS FOR.
+
+           A fully statted Stage 4 assimilated marine — cannot speak,
+           cannot manage anything complicated, can absolutely open a
+           door and pull a pin — sat in the threat table and was never
+           placed anywhere. This is the obvious home for it: the people
+           who went out because the crew went somewhere else do not
+           simply stop existing. Two of them walk back to the hangar
+           several hours later, and they still have their rifles, and
+           the sentries are going to hesitate. */
+        api.flag({ grunts_loose: true, grunts_from: loser });
+        api.say("warden",
+          "▌ Not all of them are dead. Two of that team are Stage 4 and Hinton is not good at driving them. "
+          + "They will walk back to the hangar in a few hours, in uniform, and the colonists on the wire will "
+          + "not shoot at once. Make the crew be the ones who decide.");
       }
     }
 
@@ -369,6 +402,21 @@ export const simHooks = {
 
   /* ---------------- set pieces ---------------- */
   takeGrenade(api) {
+    /* The other half of the cap. Demar is Stage 3 and folded one of
+       his own for exactly the same reason Resnick did. A crew member
+       wearing one is not a stranger leaning into the cab — they are
+       somebody who worked it out, which is the only category of
+       person he still has room for. */
+    if (simHooks.wearingFoil(api)) {
+      api.say("npc", "\"Oh,\" says Demar, looking up at the foil on your head with something that is almost recognition. \"You worked it out too.\"");
+      api.say("good", "He hands over the grenade the way you hand somebody a cup of tea, lever and pin and all, and goes back to listening.");
+      api.effects([{ give: ["fraggrenades"] }]);
+      api.flag({ demar_safe: true, demar_trusts: true });
+      api.say("npc", "\"They're up in the hills,\" he says, unprompted. \"North. Under the rock. You can walk it if you don't stop.\"");
+      api.flag("knows_mountain");
+      api.say("warden", "▌ He has just handed the crew the route to scenario three for the price of noticing a hat. Let that land.");
+      return;
+    }
     api.say("warden", "▌ He is not holding it at you. Talk to him, or be fast, or accept what happens.");
     api.effects([{
       test: "speed", skill: ["Rimwise"], tags: ["reflex"],
@@ -647,6 +695,258 @@ export const simHooks = {
     api.endGame("debrief");
   },
 
+
+  /* ============================================================
+     THE DOXORUBICIN THREAD
+
+     Twenty-five litres of frozen chemotherapy in a Greta Base
+     medical case, written up for radiation exposure. An unfinished
+     dosage calculation on a bench in the Heron labs, worked three
+     ways and abandoned partway through the fourth. Chemotherapy
+     residue in the bullet holes under the mothership's thruster
+     bell, where one marine went on his own to try it.
+
+     Three separate pieces of set-up across two scenarios, and
+     nothing anywhere consumed any of them. This is the rest of it.
+
+     The Shriek is a cancer pattern — that is the module's own
+     word for it — and the answer to a cancer is the thing you give
+     a cancer. It does not kill carcinids. It kills the larva
+     inside a person, which is the one thing hydrofluoric acid can
+     never do for you, and it is therefore the hard lever the Study
+     Group faction did not have.
+
+     WHY IT IS NOT A CURE BUTTON. Edem never finished the dose.
+     Getting it right is an Intellect Check; getting it wrong is
+     chemotherapy administered blind to somebody who had six hours
+     left. There are three doses and at least four people who need
+     one — Underhill on the relay, Weaver on the turbine, Demar in
+     the cab, and by hour six usually somebody at the table. The
+     module does not resolve that. The table does.
+     ============================================================ */
+
+  /* Reading Hinton's core, or Edem's own research, finishes the
+     arithmetic. Without either you are guessing off a bench note. */
+  doseMode(api) {
+    const f = api.world().flags || {};
+    if (f.knows_cure) return "advantage";
+    if (f.have_research) return "advantage";
+    return "disadvantage";
+  },
+
+  compoundDoxo(api) {
+    const f = api.world().flags || {};
+    if (f.have_cytotoxin) { api.say("system", "The rig has already made everything it is going to make out of what you brought it."); return; }
+    if (!f.knows_doxo) {
+      api.say("system", "The rig will run. Nobody in the room can say what to put in it — there is an unfinished calculation on a bench somewhere in this station that would answer that.");
+      return;
+    }
+    if (!carrying(api, "chemo")) {
+      api.say("system", "Nothing to compound. The reagent is twenty-five litres of frozen anticancer drug and it is still in a case at Greta Base.");
+      return;
+    }
+    if (f.power_out && !f.has_generator) { api.say("system", "No power. The rig is a very heavy table."); return; }
+
+    api.say("system", "The chemo goes in frozen and comes out of the rig ninety minutes later as something amber and much more concentrated than anything a hospital would sign for.");
+    api.effects([{ time: 90 }]);
+    api.take(["chemo"]);
+    api.effects([{ give: ["cytotoxin"] }]);
+    api.flag({ have_cytotoxin: true, doses_left: 3 });
+    api.say("good", "Three doses. That is what twenty-five litres makes at the concentration the note was working towards.");
+    api.say("warden",
+      "▌ Three doses, and by now the crew have met more than three infected people. Do not help them decide. "
+      + "Do not tell them the dose is unfinished either — the note says so, and somebody read it or nobody did.");
+    api.awardXp(4);
+  },
+
+  /* Shared by the self-dose action and the three bedside features. */
+  spendDose(api) {
+    const f = api.world().flags || {};
+    const left = f.doses_left || 0;
+    if (left <= 0) { api.say("system", "Empty. Three was all it made."); return false; }
+    const now = left - 1;
+    api.flag({ doses_left: now });
+    if (now <= 0) { api.take(["cytotoxin"]); api.say("system", "That was the last one."); }
+    else api.say("system", `${now} dose${now === 1 ? "" : "s"} left.`);
+    return true;
+  },
+
+  /* The gamble, in one place. `subject` is a name; `cure` and `harm`
+     are the two things that happen to whoever is being dosed. */
+  doseAttempt(api, { subject, cure, harm }) {
+    api.say("system", `The needle goes into ${subject}. Somebody has to have decided how much, and somebody just did.`);
+    const r = api.rollNow({
+      kind: "stat", name: "intellect", skill: ["Pathology", "First Aid", "Xenobiology"],
+      tags: ["medical", "dose"], mode: simHooks.doseMode(api),
+      why: `the dose for ${subject}`,
+    });
+    if (r.success) { cure(r); return true; }
+    harm(r);
+    return false;
+  },
+
+  doseSelf(api) {
+    const pc = api.pc();
+    const cond = (pc.conditions || []).join(" ");
+    const infected = /INFECTED|ASSIMILATED/.test(cond);
+
+    if (!infected) {
+      api.say("warden",
+        "▌ Nothing in this person is sick and a dose spent here is a dose somebody else does not get. "
+        + "Say so out loud before the plunger goes down — this is a decision, not a trap.");
+    }
+
+    if (!simHooks.spendDose(api)) return;
+
+    if (!infected) {
+      api.say("horror", "It goes in, does exactly what an anticancer drug does to somebody who does not have cancer, and finds nothing to fight.");
+      api.effects([
+        { damage: "2d10", why: "you poisoned yourself on purpose" },
+        { stress: 2, why: "you wasted one on nothing" },
+      ]);
+      return;
+    }
+
+    simHooks.doseAttempt(api, {
+      subject: pc.name,
+      cure: () => {
+        api.say("good", "It takes about four minutes, and then something inside your chest that you had stopped being able to feel stops moving.");
+        api.stopTrack("shriek");
+        api.clearCondition("INFECTED");
+        api.clearCondition("ASSIMILATED");
+        api.effects([{ damage: "1d10", why: "it is still chemotherapy" }]);
+        api.whisper("The suggestions stop. The silence where they were is going to take some getting used to.");
+        api.flag("cured_someone");
+        api.awardXp(4);
+      },
+      harm: () => {
+        api.say("horror", "It goes in wrong. Whatever it does to the thing inside you, it does considerably more of it to you.");
+        api.effects([
+          { damage: "4d10", why: "the dose was never finished" },
+          { stress: 2, why: "and it is still in there" },
+        ]);
+        api.say("warden", "▌ The larva survives, and the shock brings the next stage forward. Do not soften this.");
+        api.effects([{ track: "shriek" }]);
+      },
+    });
+  },
+
+  /* The three people the module has already told the crew are
+     infected. Each is a different argument at the table: the man
+     holding the platform, the boy who does not know yet, and the
+     one who does not want to be cured. */
+  doseNpc(api, id, lines) {
+    const w = api.world();
+    const st = (w.npcs || {})[id];
+    if (!st || !st.alive) { api.say("system", "Not any more."); return; }
+    if ((w.flags || {})[`cured_${id}`]) { api.say("system", "Already done, and it held."); return; }
+    if (!carrying(api, "cytotoxin")) { api.say("system", "You are not carrying it."); return; }
+    if (!simHooks.spendDose(api)) return;
+
+    simHooks.doseAttempt(api, {
+      subject: lines.name,
+      cure: () => {
+        api.say("good", lines.cure);
+        api.flag(`cured_${id}`);
+        api.setNpc(id, { cured: true });
+        api.flag("cured_someone");
+        api.awardXp(3);
+        if (lines.onCure) lines.onCure(api);
+      },
+      harm: () => {
+        api.say("horror", lines.harm);
+        api.setNpc(id, { alive: false });
+        api.flag(`killed_${id}`);
+        api.effects([{ stressCrew: 2, why: "you were the one holding the needle" }]);
+      },
+    });
+  },
+
+  doseUnderhill(api) {
+    simHooks.doseNpc(api, "underhill", {
+      name: "SSgt Underhill",
+      cure:
+        "He takes it in the shoulder without putting the rifle down. Four minutes later he stops mid-sentence "
+        + "the way he has been stopping all week — and then finishes it, which he has not done once since you "
+        + "arrived. The dog puts its head down for the first time in days.",
+      harm:
+        "He takes it, says thank you, and goes on watching the treeline. Ninety seconds later he stops watching "
+        + "anything. The dog does not leave him and will not let anybody near.",
+      onCure: (a) => {
+        a.say("npc", "\"Right,\" he says. \"Then I'm coming with you, and you're taking the Wilbur, because I'm going to be busy carrying the dog.\"");
+        a.effects([{ give: ["amr"] }]);
+        a.flag("amr_free");
+        a.say("warden", "▌ The anti-material rifle is now in play, and so is the only man left on this planet who can use it.");
+      },
+    });
+  },
+
+  doseWeaver(api) {
+    simHooks.doseNpc(api, "weaver", {
+      name: "PFC Weaver",
+      cure:
+        "He does not know what you are giving him and takes it because somebody with authority told him to, "
+        + "which is how he has survived the last six hours. He is asleep inside a minute and breathing like a "
+        + "person.",
+      harm:
+        "He is apologising for the state of himself while you do it and he is still apologising when it stops "
+        + "working. Franco does not say anything at all, and keeps counting his six rounds out loud.",
+    });
+  },
+
+  doseDemar(api) {
+    simHooks.doseNpc(api, "demar", {
+      name: "Demar",
+      cure:
+        "He does not resist and he does not help. Twenty minutes later he starts crying, in the dark, in the "
+        + "cab of an APC, because he is the only person on Samsa VI who has been given back something he did "
+        + "not want returned.",
+      harm:
+        "He says it is alright, twice, the way he says everything, and then he is not saying anything. The "
+        + "foil cap comes off in your hand.",
+    });
+  },
+
+  wearingFoil(api) {
+    const pc = api.pc();
+    if (!pc) return false;
+    return (pc.conditions || []).some((c) => String(c).startsWith("FOIL CAP"));
+  },
+
+  wearFoil(api) {
+    const pc = api.pc();
+    if (simHooks.wearingFoil(api)) {
+      api.clearCondition("FOIL CAP");
+      api.say("system", "You take it off. It weighs nothing and you notice the absence anyway.");
+      return;
+    }
+    api.addCondition("FOIL CAP");
+    api.say("system", "Several careful layers of ration foil, folded by a dead man to fit a head that was not yours.");
+    api.sayOthers("{name} is now wearing a hat made of ration foil, and is not being funny about it.", "warden");
+    api.say("warden",
+      "▌ It works against the Signal, which is a broadcast, and against nothing that is in the room with them. "
+      + "The first time a carcinid Shrieks at somebody wearing it, say so.");
+  },
+
+  /* Coated rounds are a magazine, not a permanent upgrade. */
+  spendCoated(api) {
+    const f = api.world().flags || {};
+    const left = Math.max(0, (f.coated_left || 0) - 4);
+    api.flag({ coated_left: left });
+    if (left <= 0) {
+      api.take(["coatedammo"]);
+      api.say("warden", "▌ That was the last of them. Whatever happens next happens with ordinary ammunition.");
+    } else {
+      api.say("system", `About ${left} coated rounds left.`);
+    }
+  },
+
+  raftCross(api) {
+    api.say("system", "The raft goes in, takes everybody's weight, and is the least dignified and most sensible thing anybody has done today.");
+    api.flag("used_raft");
+    api.say("warden", "▌ It is an inflatable raft on water with things in it. Do not roll for it, but do describe what goes past underneath.");
+  },
+
   /* ---------------- devices ---------------- */
   repairComms(api) {
     const f = api.world().flags || {};
@@ -675,7 +975,7 @@ export const simHooks = {
     api.say("system", "Edem's compound goes on wet and dries matte. It is not elegant and it does not need to be.");
     api.effects([{ time: 60 }, { give: ["coatedammo"] }]);
     api.say("good", "Two dozen coated rounds, give or take. They go through carapace as though it were not there, and there are never enough of them.");
-    api.flag("has_coated");
+    api.flag({ has_coated: true, coated_left: 24 });
   },
 };
 
