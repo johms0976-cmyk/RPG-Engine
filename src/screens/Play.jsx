@@ -865,7 +865,10 @@ export default function Play({
             pending={pending}
             assistId={assistId}
             onAssist={setAssistId}
-            onRoll={() => { resolvePending({ assist: assistId }); setAssistId(null); }}
+                        onRoll={(declared) => {
+              resolvePending({ assist: assistId, ...(declared ? { declared } : {}) });
+              setAssistId(null);
+            }}
           />
         </Modal>
       )}
