@@ -80,6 +80,9 @@ export default function RollPrompt({ g, pending, assistId, onAssist, onRoll }) {
     [req, pc, crew, items, mod, w, houseRules, assistId],
   );
 
+     const tableDice = !!(houseRules && houseRules.tableDice);
+  const [appRolls, setAppRolls] = useState(false);
+
   const assists = possibleAssists ? possibleAssists(pc) : [];
 
   /* What the same roll would look like with the helper, so the
