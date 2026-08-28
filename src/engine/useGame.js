@@ -12,6 +12,7 @@ import {
   STAT_KEYS, SAVE_KEYS, STAT_LABEL, skillTier, resolveRest, RestQuality,
   xpForLevel, primeAmmo, SKILL_BONUS, applyAdvancement,
 } from "./rules.js";
+import { declaredCheck } from "./declared.js";
 import { reactionById, canReact, liveReactions } from "./reactions.js";
 import { collectModifiers, describeModifiers } from "./modifiers.js";
 import { createWorld, npcsIn, threatIn, visibleExits, dayOf } from "./world.js";
