@@ -169,3 +169,22 @@ describe("Dead Weight can reach its own ending", () => {
     expect(world.flags.hold_cold).toBe(true);
   });
 });
+
+import { test as predicate } from "../src/engine/effects.js";
+
+describe("met: — the crew's own history with an NPC", () => {
+  const ctx = (met) => ({
+    world: { npcs: { brookman: { alive: true, taken: false, loc: "hangar", met } }, flags: {}, room: "lz", visited: {}, threats: {} },
+    pc: { items: [], skills: [], conditions: [] }, items: {}, crew: [],
+  });
+  it("is false before they have spoken", () => {
+    expect(predicate("met:brookman", ctx(false))).toBe(false);
+  });
+  it("is true afterwards, and is not about being in the room", () => {
+    expect(predicate("met:brookman", ctx(true))).toBe(true);
+    expect(predicate("here:brookman", ctx(true))).toBe(false);
+  });
+  it("is false for an NPC that does not exist", () => {
+    expect(predicate("met:nobody", ctx(true))).toBe(false);
+  });
+});
