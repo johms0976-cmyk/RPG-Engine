@@ -34,7 +34,7 @@ export function rollPercent(rng = Math.random) {
 /** Outcome band, highest is best. Used to pick under Advantage/Disadvantage. */
 export const BAND = { CRIT_FAIL: 0, FAIL: 1, SUCCESS: 2, CRIT_SUCCESS: 3 };
 
-function scoreRoll(r, target) {
+export function scoreRoll(r, target) {
   // 00 always succeeds, 99 always fails, regardless of target.
   const success = r.value === 0 ? true : r.value === 99 ? false : r.value <= target;
   const crit = r.doubles || r.value === 0 || r.value === 99;
