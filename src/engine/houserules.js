@@ -68,6 +68,15 @@ export const HOUSE_RULES = {
     kind: "bool", def: true,
     blurb: "A Critical Failure on any Save forces a Panic Check. (Rules as written.)",
   },
+  tableDice: {
+    name: "The table rolls its own",
+    kind: "bool", def: false,
+    blurb:
+      "Players read their own d10s in instead of the app rolling. Slower by a few " +
+      "seconds a roll and worth it at a table that brought dice. Nobody is checking " +
+      "the numbers, exactly as nobody is checking them at a physical table.",
+  },
+   
   trackAmmoStrictly: {
     name: "Ammunition gates firing",
     kind: "bool", def: true,
