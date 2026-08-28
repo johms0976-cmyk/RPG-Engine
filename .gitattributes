@@ -1,0 +1,47 @@
+# ============================================================
+#  LINE ENDINGS
+#
+#  Play.bat, Doctor.bat and Update.bat were all committed with
+#  Unix line endings. cmd.exe mostly tolerates that, which is the
+#  problem: it tolerates it right up until a parenthesised block,
+#  a caret continuation, or a final line without a trailing
+#  newline, and then it fails in a way that names the wrong line.
+#  Those are exactly what a launcher script is made of.
+#
+#  Fixing the files was not enough on its own. Without this file
+#  the next editor, checkout, or "Add files via upload" that
+#  round-trips through a Unix tool puts the LFs straight back.
+#  Pinning it here means the working copy on Windows is CRLF no
+#  matter what is in the object store.
+#
+#  .ps1 is here for the same reason: PowerShell is more forgiving
+#  than cmd, but signed scripts and here-strings are not.
+# ============================================================
+
+# Let git decide for everything it can, normalising to LF in the repo.
+* text=auto
+
+# Windows shells get CRLF in the working tree, always.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Anything run by a Unix shell gets LF, always - a CRLF here is a
+# "bad interpreter" error with an invisible cause.
+*.sh    text eol=lf
+
+# Source and docs: normalised, LF.
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+
+# Binary, so git never tries to translate anything inside them.
+*.png   binary
+*.mp3   binary
+*.woff  binary
+*.woff2 binary
+*.pdf   binary
