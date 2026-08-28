@@ -57,6 +57,7 @@ import HoldToRoll from "./HoldToRoll.jsx";
 import Hint from "./Hint.jsx";
 import { previewRoll, previewSentence, pct } from "../engine/rollpreview.js";
 import { STAT_LABEL } from "../engine/rules.js";
+import DeclareDice from "./DeclareDice.jsx";
 
 /** One modifier, drawn as what it does rather than as a number. */
 function Mod({ m }) {
