@@ -327,15 +327,25 @@ export function useGame(mod, settings = {}) {
     });
     const base = baseValue(pc, req.kind, req.name, items);
     const target = clampTarget(base + m.bonus);
-    const r = check(target, m.mode, { advTieBreak: houseRules.advTieBreak });
-
+        /* Dice the table rolled themselves, when the table is rolling
+       their own. `declaredCheck` returns the same shape and refuses
+       rather than silently downgrading an Advantage roll with only
+       one pair — so a refusal falls back to the generator instead of
+       resolving a mode that was never applied. */
+    let r = null;
+    if (req.declared) {
+      const dr = declaredCheck(target, m.mode, req.declared, { advTieBreak: houseRules.advTieBreak });
+      if (!dr.error) r = dr;
+    }
+    if (!r) r = check(target, m.mode, { advTieBreak: houseRules.advTieBreak });
     const skillName = Array.isArray(req.skill)
       ? req.skill.find((s) => pc.skills.includes(s))
       : (pc.skills.includes(req.skill) ? req.skill : null);
     const label = `${STAT_LABEL[req.name] || req.name}${skillName ? ` (${skillName})` : ""}`;
     setLastRoll({ ...r, label, who: pc.name, breakdown: m.breakdown });
-    logRoll({ clock: W().clock, who: pc.name, label, value: r.value, target, mode: m.mode,
-      success: r.success, critHit: r.critHit, critFail: r.critFail, margin: r.margin });
+        logRoll({ clock: W().clock, who: pc.name, label, value: r.value, target, mode: m.mode,
+      success: r.success, critHit: r.critHit, critFail: r.critFail, margin: r.margin,
+      declared: !!r.declared });
 
     const tag = r.critHit ? "CRITICAL SUCCESS" : r.critFail ? "CRITICAL FAILURE" : r.success ? "SUCCESS" : "FAILURE";
     const mods = describeModifiers(m.breakdown);
