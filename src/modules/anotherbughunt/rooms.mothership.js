@@ -482,13 +482,37 @@ export const mothership = {
       { save: "fear", mode: "disadvantage", why: "the three of them", onFail: [{ stress: 3, why: "one of them has moved" }] },
       { npc: { id: "jensen", loc: "court" } },
       { say: "The carcs notice you. They do not attack. Several of them close in around your crew and escort you — there is no other word for it — to an audience.", tone: "horror" },
+      /* HINTON, PRESENT AND ATTACKABLE.
+
+         The `hinton` and `retinue` threats existed with full stat
+         lines and were never placed anywhere, so a crew who decided
+         to shoot the android had nothing to shoot — and his logic
+         core, one of the two things the Company actually sent them
+         for, was granted only by his `onSlain` and was therefore
+         unobtainable. Both are placed with `ambushes: false`: they
+         are in the room, they do not start a fight, and the crew
+         choose. */
+      { threat: { id: "hinton", loc: "court" } },
+      { threat: { id: "retinue", loc: "court" } },
       { run: "meetHinton" },
       { flag: "met_hinton" },
     ],
     exits: [
       { to: "b5", label: "Back through the airlocks → [B5]", mins: 10 },
       { to: "tunnels", label: "Out through the bore tunnels → Heron Station", mins: 60 },
-      { to: "@escape", label: "Leave, and mean it", confirm: "Choose it again to walk out of the Court.", effects: [{ run: "leaveCourt" }] },
+    ],
+    /* Leaving is a decision, not an ending. It used to be an
+       `@escape` exit, so declining the fight — the wise answer, and
+       the one the module's own notes recommend — rolled the credits
+       with scenario four unplayed. It now walks them back into the
+       bore tunnels and leaves `escape` for a crew who go home with
+       nothing. */
+    actions: [
+      {
+        id: "leavecourt", label: "Leave, and mean it", kind: "accent",
+        when: "!flag:left_court",
+        effects: [{ run: "leaveCourt" }],
+      },
     ],
     features: {
       hinton: {
@@ -527,8 +551,21 @@ export const mothership = {
       { say: "Anders says the liaison has mostly been in his quarters watching videos. Benfield says he tried to raise you once, got a noise like a drill going through a wall, and stopped trying.", tone: "npc" },
       { flag: "aboard_ship" },
     ],
-    exits: [
-      { to: "@debrief", label: "Break orbit", confirm: "Choose it again to leave the Samsa system.", effects: [{ run: "breakOrbit" }] },
+    exits: [],
+    /* NOT AN EXIT ANY MORE.
+
+       `doMove` runs an ending exit's effects and then calls
+       `endGame` whatever they did, so `breakOrbit` started the Maas
+       fight and the credits rolled over the top of it in the same
+       instant. As a room action the hook owns the decision: it runs
+       the fight the first time and picks the departure ending the
+       second, which is also how the module finally reaches four of
+       its eight endings. */
+    actions: [
+      {
+        id: "breakorbit", label: "Break orbit", kind: "accent",
+        effects: [{ run: "breakOrbit" }],
+      },
     ],
     features: {
       maas: {
