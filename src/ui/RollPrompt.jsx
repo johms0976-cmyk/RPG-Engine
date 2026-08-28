@@ -164,12 +164,22 @@ export default function RollPrompt({ g, pending, assistId, onAssist, onRoll }) {
           </p>
         )}
 
-        <HoldToRoll
-          label={`Roll ${statName}`}
-          hint={isSave ? "press and hold — or shake" : "press and hold"}
-          onRoll={onRoll}
-        />
-
+                {tableDice && !appRolls ? (
+          <DeclareDice
+            preview={preview}
+            label={`Confirm ${statName}`}
+            isSave={isSave}
+            advTieBreak={houseRules.advTieBreak}
+            onDeclare={(pairs) => onRoll(pairs)}
+            onFallBack={() => setAppRolls(true)}
+          />
+        ) : (
+          <HoldToRoll
+            label={`Roll ${statName}`}
+            hint={isSave ? "press and hold — or shake" : "press and hold"}
+            onRoll={() => onRoll()}
+          />
+        )}
         {/* The preview is the phone's arithmetic, not the table's.
             Saying so once is cheaper than a player deciding the app
             is broken the first time the host knows something they
