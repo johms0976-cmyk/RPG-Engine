@@ -20,6 +20,7 @@ import {
   roomOf, pcsIn, othersHere, isAlone, isSplit, occupiedRooms,
   majorityRoom, audienceFor, exitsFor,
 } from "./party.js";
+import { makeRulingControls } from "./wardenRulings.js";
 import { pushHistory, popHistory, historyLabel, emptyHistory } from "./history.js";
 import { runEffects, test, tmpl } from "./effects.js";
 import {
@@ -2970,6 +2971,17 @@ export function useGame(mod, settings = {}) {
   }, [fireSequence]);
   checkSeqRef.current = checkSequences;
 
+  /* THE RULINGS. Six lines here and the rest in engine/wardenRulings.js,
+     because this file is already three thousand lines and is where the
+     next change breaks something. */
+  const { rule: wardenRule, unrule: wardenUnrule } = useMemo(
+    () => makeRulingControls({
+      W, commitW, say, note: wardenNote,
+      nameOf: (id) => (findPc(C(), id) || {}).name || null,
+    }),
+    [commitW, say, wardenNote],
+  );
+
   const warden = useMemo(() => ({
     say: wardenSay,
     arm: armSeq,
@@ -3015,7 +3027,10 @@ export function useGame(mod, settings = {}) {
     nudge: wardenNudge,
     /* ---- props, addressed ---- */
     showTo: wardenShowTo,
-  }), [wardenSay, wardenNote, wardenNpcSay, wardenAdjust, wardenCondition, wardenItem,
+    /* ---- the thing the module did not anticipate (engine/ruling.js) ---- */
+    rule: wardenRule,
+    unrule: wardenUnrule,
+  }), [wardenRule, wardenUnrule,wardenSay, wardenNote, wardenNpcSay, wardenAdjust, wardenCondition, wardenItem,
     wardenCountdown, wardenMoveNpc, startCombat, wardenEndCombat, wardenAsk, wardenShowHandout,
     wardenHold, wardenBreather, wardenSituation, wardenScene, wardenBeat, wardenRecap,
     wardenClearRecap, wardenRate, wardenFloor, wardenInitiative, wardenNudge, wardenShowTo,
