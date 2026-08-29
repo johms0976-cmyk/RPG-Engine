@@ -48,6 +48,11 @@ export function createWorld(mod, seed) {
     ),
     countdowns: {},
     rollLog: [],
+    /* Facts this table added that the module did not ship. See
+       engine/ruling.js — kept here rather than merged into `mod`
+       because the module object is shared between tables and a
+       ruling is not, and because a ruling can be taken back. */
+    rulings: [],
     clues: [],
     marks: [],
     /* Handouts that have been opened, keyed by id: { id, first, by }.
