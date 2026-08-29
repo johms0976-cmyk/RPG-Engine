@@ -22,9 +22,19 @@ export default function Ending({ mod, w, crew, feed, onAgain, onLibrary, phone =
      table can each take away a different and individually honest
      account of the same session, and none of them contains anybody
      else's secrets. */
+  /* WHOSE COPY THIS IS.
+
+     `phone` already tells us which device we are on and `pcId` who
+     is holding it, so the transcript can be addressed without a new
+     prop. A phone gets that player's rulings — including the ones
+     whispered only to them. The host is the Warden's device and
+     holds unredacted state, so its copy carries everything,
+     including the rulings that were taken back. */
+  const asWho = { viewerPcId: phone ? pcId : null, isWarden: !phone };
+
   const [copied, setCopied] = React.useState(false);
   const copy = React.useCallback(() => {
-    const text = toMarkdown({ mod, world: w, crew, feed });
+    const text = toMarkdown({ mod, world: w, crew, feed, ...asWho });
     const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2500); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, () => {});
@@ -197,7 +207,7 @@ export default function Ending({ mod, w, crew, feed, onAgain, onLibrary, phone =
           {/* A file is the right answer on the machine that has a
               file system and somewhere to put it. */}
           {!phone && (
-            <Btn kind="ghost" onClick={() => downloadText(filename(mod, w), toMarkdown({ mod, world: w, crew, feed }), "text/markdown")}>
+            <Btn kind="ghost" onClick={() => downloadText(filename(mod, w), toMarkdown({ mod, world: w, crew, feed, ...asWho }), "text/markdown")}>
               Export the session transcript
             </Btn>
           )}
