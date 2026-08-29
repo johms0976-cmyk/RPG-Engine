@@ -216,7 +216,11 @@ export default function Play({
   };
 
   const exportTranscript = () => {
-    const md = toMarkdown({ mod, world: w, crew, feed });
+    /* `warden` exists only on the authoritative game — a phone holding
+       a useRemoteGame has no such key — so it is the honest test for
+       "is this the device that is allowed to see everything". A
+       player's own export goes through Ending, addressed to them. */
+    const md = toMarkdown({ mod, world: w, crew, feed, isWarden: !!gp.warden });
     downloadText(filename(mod, w), md, "text/markdown");
   };
 
