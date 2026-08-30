@@ -61,10 +61,30 @@ export function declaredFlags(mod) {
 
   for (const [id, r] of Object.entries(mod.rooms || {})) {
     walkEffects(r.onEnter, r.name || id);
+    walkEffects(r.onFirstEnter, r.name || id);
     for (const [k, f] of Object.entries(r.features || {})) {
       walkEffects(f.effects, `${r.name || id} — ${f.name || k}`);
+      /* `setsFlag` is the shorthand form and it was invisible here.
+         A feature that sets a flag by declaring `setsFlag` rather
+         than by running `{ flag: … }` is doing the same thing, and
+         the Warden's list of secrets has never included any of
+         them. */
+      if (typeof f.setsFlag === "string") note(f.setsFlag, `${r.name || id} — ${f.name || k}`);
     }
     for (const a of r.actions || []) walkEffects(a.effects, r.name || id);
+    /* THE GATES, which are the flags that matter most and were the
+       ones missing. A locked door's flag IS the state of that door,
+       it is the single most common flag in every module in the
+       repository, and until now `declaredFlags` walked past every
+       one of them because a gate is not an effect. The Warden's
+       dossier has been listing the module's secrets minus its
+       locks. */
+    for (const e of r.exits || []) {
+      if (!e || !e.gate) continue;
+      const where = `${r.name || id} — ${e.label || `to ${e.to}`}`;
+      if (typeof e.gate.flag === "string") note(e.gate.flag, where);
+      for (const rt of e.gate.routes || []) walkEffects(rt.effects, where);
+    }
   }
   for (const [id, h] of Object.entries(mod.handouts || {})) walkEffects(h.effects, h.label || id);
   for (const [id, d] of Object.entries(mod.devices || {})) {
