@@ -1,0 +1,63 @@
+{
+  "_readme": [
+    "WHO SOUNDS LIKE WHO. This file is the casting session and it is meant to be argued with.",
+    "One entry per NPC id, matching the ids in the module's npcs.js. Anything not listed uses the",
+    "module's _default, then the top-level _default.",
+    "",
+    "voice  an edge-tts short name. `python tools/voice-generate.py --list-voices` prints every one",
+    "       your machine can actually reach; the recorder checks yours against that list before it",
+    "       cuts anything, so a typo is caught in a second rather than found at the table.",
+    "rate   speaking speed, e.g. -10% for someone who says as little as possible and means all of it.",
+    "pitch  in Hz, e.g. -8Hz. A little goes a long way. Past about 15Hz either way it stops sounding",
+    "       like a person and starts sounding like a setting.",
+    "note   why. For you, in six months, when you wonder what you were going for.",
+    "",
+    "The casting below is character-led, not name-led: a voice is picked for how the person in the",
+    "module behaves, and the accents are spread out mainly so that ten people in one corridor are",
+    "distinguishable with your eyes shut. Change any of it. Deleting a clip folder and re-running is",
+    "cheap, and hearing it is the only way to know."
+  ],
+
+  "_default": { "voice": "en-GB-RyanNeural", "rate": "+0%", "pitch": "+0Hz" },
+
+  "ypsilon14": {
+    "_default": { "voice": "en-GB-LibbyNeural", "rate": "+0%", "pitch": "+0Hz" },
+
+    "sonya": {
+      "voice": "en-GB-SoniaNeural", "rate": "-4%", "pitch": "-6Hz",
+      "note": "Runs the base. Short sentences, no time for you, not panicking and resents anyone who makes that harder."
+    },
+    "rosa": {
+      "voice": "en-AU-NatashaNeural", "rate": "+4%", "pitch": "-8Hz",
+      "note": "Blunt to the edge of rude, and doing two jobs. Quick and low: she has already decided."
+    },
+    "dana": {
+      "voice": "en-US-MichelleNeural", "rate": "-10%", "pitch": "-10Hz",
+      "note": "Stoic and sullen. Slow and flat on purpose — the pauses are the character."
+    },
+    "rie": {
+      "voice": "en-IE-EmilyNeural", "rate": "+7%", "pitch": "+6Hz",
+      "note": "Everything is a bit until the last sentence. The lift is what makes the flat delivery of the useful line land."
+    },
+    "morgan": {
+      "voice": "en-GB-ThomasNeural", "rate": "+3%", "pitch": "+2Hz",
+      "note": "Warm, chatty, and the chat is a coping strategy. Should sound like the nicest person here, because he is."
+    },
+    "jerome": {
+      "voice": "en-US-TonyNeural", "rate": "+11%", "pitch": "+5Hz",
+      "note": "Jokes getting faster and worse for three weeks. Fast enough to be tiring, which is the point."
+    },
+    "ashraf": {
+      "voice": "en-IE-ConnorNeural", "rate": "+5%", "pitch": "+4Hz",
+      "note": "Newest aboard, eager to be liked, agrees with whoever spoke last. Young and up."
+    },
+    "kantaro": {
+      "voice": "en-US-DavisNeural", "rate": "-7%", "pitch": "-12Hz",
+      "note": "Withdrawn, sweating, stronger than last week. Low and slightly slow — something is using the throat."
+    },
+    "giovanni": {
+      "voice": "en-GB-RyanNeural", "rate": "-13%", "pitch": "+4Hz",
+      "note": "Pleasant, half a second late, never quite an answer. Slow and slightly bright is the whole trick: it is a person's voice at the wrong speed."
+    }
+  }
+}
